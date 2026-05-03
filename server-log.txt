@@ -1,0 +1,53 @@
+
+🎨 ========================================
+🎨   旋转万花筒绘图工具 - 后端服务已启动
+🎨 ========================================
+
+📌 本地访问:    http://localhost:3000
+📱 移动端访问（请确保手机与电脑在同一WiFi网络）:
+   http://192.168.137.1:3000
+   http://10.40.39.151:3000
+
+📲 二维码页面: http://localhost:3000/api/qrcode
+
+📋 API 端点:
+   GET  /api/status          - 服务器状态（含移动端信息）
+   GET  /api/qrcode           - 移动端访问二维码页面
+   POST /api/project/save    - 保存项目
+   GET  /api/project/list    - 项目列表
+   POST /api/gallery/save    - 保存截图
+   GET  /api/gallery/list    - 截图列表
+   POST /api/share           - 生成分享链接
+   GET  /api/online-music/list    - 获取在线音乐（第三方API）
+   GET  /api/online-music/stream  - 代理音频流（解决跨域）
+
+📱 PWA 支持:
+   /manifest.json             - PWA 清单
+   /sw.js                     - Service Worker
+   /public/icons/             - 应用图标
+
+💡 提示:
+   • 手机浏览器打开地址 → 点击"添加到主屏幕" → 像APP一样使用
+   • 离线也可使用基础绘图功能（Service Worker 缓存）
+   • 支持 Ctrl+C 停止服务器
+
+[在线音乐] 尝试获取: https://api.uomg.com/api/rand.music?sort=热歌榜&format=json
+[在线音乐] API https://api.uomg.com/api/rand.music?sort=热歌榜&format=json 失败: fetch failed
+[在线音乐] 尝试获取: https://api.infinitecloud.cn/api/rand.music?type=热歌&format=json
+[在线音乐] API https://api.infinitecloud.cn/api/rand.music?type=热歌&format=json 失败: This operation was aborted
+[在线音乐] 尝试获取: https://api.v1.mk/music/random
+[在线音乐] 使用备用音乐: 🎵 轻音乐 - 舒缓旋律
+[在线音乐] 尝试获取: https://api.uomg.com/api/rand.music?sort=热歌榜&format=json
+[在线音乐] API https://api.uomg.com/api/rand.music?sort=热歌榜&format=json 失败: fetch failed
+[在线音乐] 尝试获取: https://api.infinitecloud.cn/api/rand.music?type=热歌&format=json
+[在线音乐] API https://api.infinitecloud.cn/api/rand.music?type=热歌&format=json 失败: This operation was aborted
+[在线音乐] 尝试获取: https://api.v1.mk/music/random
+[在线音乐] 使用备用音乐: 🎵 创意灵感 - Creative Flow
+[在线音乐] 尝试获取: https://api.uomg.com/api/rand.music?sort=热歌榜&format=json
+[在线音乐] API https://api.uomg.com/api/rand.music?sort=热歌榜&format=json 失败: fetch failed
+[在线音乐] 尝试获取: https://api.infinitecloud.cn/api/rand.music?type=热歌&format=json
+[在线音乐] API https://api.infinitecloud.cn/api/rand.music?type=热歌&format=json 失败: This operation was aborted
+[在线音乐] 尝试获取: https://api.v1.mk/music/random
+[在线音乐] 使用备用音乐: 🌊 海洋冥想 - Ocean Waves
+[音频代理] 请求: https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp...
+[音频代理] 请求失败: response.body.pipe is not a function
