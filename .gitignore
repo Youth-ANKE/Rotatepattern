@@ -1,0 +1,5 @@
+node_modules/
+public/music/*.mp3
+server-data/
+server-log.txt
+.DS_Store

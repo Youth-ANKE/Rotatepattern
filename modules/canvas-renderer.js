@@ -38,9 +38,10 @@ const CanvasRenderer = {
         this.resize();
         window.addEventListener('resize', () => this.resize());
 
-        // 监听状态变化
+        // 监听状态变化（仅对笔画相关变化触发重绘）
         StateManager.subscribe((state) => {
-            this.needRedrawOffscreen = true;
+            // 不在每次状态变化时都重绘离屏画布
+            // needRedrawOffscreen 由具体的笔画变更操作设置
         });
 
         // 每5分钟清理一次渐变缓存（防内存增长）
@@ -254,7 +255,13 @@ const CanvasRenderer = {
             strokes, currentStroke, _animationTransforms
         } = s;
 
+        // 安全检查：防止无效的画布尺寸或上下文
+        if (!canvasWidth || !canvasHeight || canvasWidth <= 0 || canvasHeight <= 0) {
+            return;
+        }
+
         const ctx = this.ctx;
+        if (!ctx) return;
         const cx = canvasWidth / 2;
         const cy = canvasHeight / 2;
 
@@ -262,22 +269,43 @@ const CanvasRenderer = {
         const prevComposite = ctx.globalCompositeOperation;
         ctx.globalCompositeOperation = s.blendMode || 'normal';
 
-        // 2. 背景（带材质色板）
+        // 2. 背景（带材质色板）- 确保背景总是被正确绘制
         const bgColor = this._resolveBgColor();
-        if (!trailMode) {
-            ctx.fillStyle = bgColor;
-            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-            // 使用 NoiseGenerator 绘制噪声纹理背景（如果启用）
-            if (typeof NoiseGenerator !== 'undefined' && s.gradientType === 'none') {
-                try {
-                    NoiseGenerator.applyNoiseBackground(ctx, canvasWidth, canvasHeight, bgColor, s.noiseSeed);
-                } catch (e) {
-                    // 噪声可选，静默失败
-                }
-            }
+        
+        // 安全检查背景色
+        if (!bgColor || bgColor === 'transparent' || bgColor === 'undefined') {
+            ctx.fillStyle = '#0a0a1a'; // 默认深蓝色背景
         } else {
-            ctx.fillStyle = bgColor + '20';
+            ctx.fillStyle = bgColor;
+        }
+        
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // 绘制渐变背景（如果有 bgGrad 配色）
+        const bgGrad = s.bgGrad;
+        if (bgGrad && bgGrad !== bgColor && bgGrad.startsWith('#')) {
+            try {
+                const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(cx, cy));
+                gradient.addColorStop(0, bgGrad);
+                gradient.addColorStop(1, bgColor);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            } catch (e) {
+                // 渐变背景失败时忽略，使用纯色背景
+            }
+        }
+
+        // 如果是拖尾模式，用半透明背景叠加（仅在有内容时）
+        if (trailMode && strokes && strokes.length > 0) {
+            // 安全地创建半透明背景色（避免 bgColor + '20' 对非6位hex颜色无效）
+            try {
+                const r = parseInt(bgColor.slice(1, 3), 16);
+                const g = parseInt(bgColor.slice(3, 5), 16);
+                const b = parseInt(bgColor.slice(5, 7), 16);
+                ctx.fillStyle = `rgba(${r},${g},${b},0.12)`;
+            } catch (e) {
+                ctx.fillStyle = 'rgba(10,10,26,0.12)';
+            }
             ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         }
 
@@ -309,15 +337,32 @@ const CanvasRenderer = {
     },
 
     /**
+     * 获取与背景对比的颜色
+     */
+    _getContrastColor(bgColor) {
+        if (!bgColor || !bgColor.startsWith('#')) return '#ffffff';
+        try {
+            const r = parseInt(bgColor.slice(1, 3), 16);
+            const g = parseInt(bgColor.slice(3, 5), 16);
+            const b = parseInt(bgColor.slice(5, 7), 16);
+            // 计算亮度
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            return brightness > 128 ? '#333333' : '#ffffff';
+        } catch (e) {
+            return '#ffffff';
+        }
+    },
+
+    /**
      * 响应式调整画布尺寸
      */
     resize() {
         const container = document.querySelector('.canvas-container');
-        const maxSize = Math.min(container.clientWidth - 40, container.clientHeight - 40, 800);
+        const maxSize = Math.max(Math.min(container.clientWidth - 40, container.clientHeight - 40, 800), 100);
 
-        if (this.offscreenCanvas) {
-            this.offscreenCanvas.width = 1;
-            this.offscreenCanvas.height = 1;
+        // 如果尺寸没有变化，跳过
+        if (this.canvas && this.canvas.width === maxSize && this.canvas.height === maxSize) {
+            return;
         }
 
         this.canvas.width = maxSize;
@@ -337,7 +382,7 @@ const CanvasRenderer = {
         this._cacheAccessCount.clear();
         this._brushCache.lastKey = '';
 
-        this.render();
+        // 不在这里调用 render，让动画循环处理
     },
 
     // ==================== 离屏重绘 ====================
@@ -346,14 +391,61 @@ const CanvasRenderer = {
         const s = StateManager.state;
         const { canvasWidth, canvasHeight, strokes, gradientEnabled,
                 gradientFrom, gradientTo, rainbowMode, rainbowHue, colorCycleMode,
-                materialPalette, colorScheme, colorDither, gradientType } = s;
+                materialPalette, colorScheme, colorDither, gradientType, strokeColor } = s;
         const octx = this.offscreenCtx;
 
         if (!octx) return;
+        
+        // 确保离屏画布尺寸正确
+        if (this.offscreenCanvas.width !== canvasWidth || this.offscreenCanvas.height !== canvasHeight) {
+            this.offscreenCanvas.width = canvasWidth;
+            this.offscreenCanvas.height = canvasHeight;
+        }
+        
         octx.clearRect(0, 0, canvasWidth, canvasHeight);
 
         octx.lineCap = 'round';
         octx.lineJoin = 'round';
+
+        // 安全检查：如果没有笔画，绘制明显的占位图案
+        if (!strokes || strokes.length === 0) {
+            console.warn('[CanvasRenderer] 没有笔画可绘制');
+            // 使用对比色绘制占位图案，确保可见
+            const bgColor = s.bgColor || '#000000';
+            const contrastColor = this._getContrastColor(bgColor);
+            octx.fillStyle = contrastColor;
+            octx.strokeStyle = contrastColor;
+            octx.lineWidth = Math.max(3, Math.min(canvasWidth, canvasHeight) * 0.008);
+            const cx = canvasWidth / 2;
+            const cy = canvasHeight / 2;
+            const r = Math.min(canvasWidth, canvasHeight) * 0.2;
+            
+            // 绘制多个圆圈确保可见
+            for (let i = 0; i < 2; i++) {
+                octx.beginPath();
+                octx.arc(cx, cy, r * (1 - i * 0.3), 0, Math.PI * 2);
+                octx.stroke();
+            }
+            
+            // 绘制十字
+            const lineLen = r * 0.9;
+            octx.beginPath();
+            octx.moveTo(cx - lineLen, cy);
+            octx.lineTo(cx + lineLen, cy);
+            octx.moveTo(cx, cy - lineLen);
+            octx.lineTo(cx, cy + lineLen);
+            octx.stroke();
+            
+            // 绘制对角线
+            const diag = r * 0.6;
+            octx.beginPath();
+            octx.moveTo(cx - diag, cy - diag);
+            octx.lineTo(cx + diag, cy + diag);
+            octx.moveTo(cx + diag, cy - diag);
+            octx.lineTo(cx - diag, cy + diag);
+            octx.stroke();
+            return;
+        }
 
         // 预获取一次材质配色（如果有）
         let materialColors = null;
@@ -365,7 +457,7 @@ const CanvasRenderer = {
 
         for (let idx = 0; idx < strokes.length; idx++) {
             const stroke = strokes[idx];
-            if (stroke.length < 2) continue;
+            if (!stroke || stroke.length < 2) continue;
 
             // 笔画简化
             let drawStroke = stroke;
@@ -431,23 +523,55 @@ const CanvasRenderer = {
 
     // ==================== 对称绘制 ====================
 
-    _drawOffscreenWithSymmetry(ctx, cx, cy, symmetryMode, count, rotation) {
+    /**
+     * 计算对称绘制时的缩放因子，确保旋转后所有副本都在画布内
+     * 原理：旋转对称时，离屏画布内容在旋转后可能超出画布边界
+     * 需要缩小到内切圆半径：对于N折对称，最大半径 = canvasR / (1 + sin(π/N))
+     * 这确保旋转后的副本不超出画布
+     */
+    _getSymmetryScaleFactor(symmetryMode, count) {
         if (symmetryMode === 'spiral') {
-            this._drawSpiralOffscreen(ctx, cx, cy, count, rotation);
+            // 螺旋模式本身有缩放，取较小值
+            return 0.7;
+        }
+        if (symmetryMode === 'mirror') {
+            // 镜像对称，内容被反射到另一半
+            // 对于 N 个镜像，缩放因子约 1 / (1 + cos(π/N))
+            if (count <= 1) return 1;
+            return 1 / (1 + Math.cos(Math.PI / count));
+        }
+        // 旋转对称：最常见的情况
+        // N折旋转时，内容绕中心旋转 N 次
+        // 当 N 较大时（如8+），每个扇区角度小，图案互相交叠
+        // 缩放因子确保单个扇区的内容旋转后不超出画布
+        if (count <= 1) return 1;
+        if (count <= 4) return 0.85;
+        if (count <= 8) return 0.75;
+        if (count <= 12) return 0.7;
+        return 0.65;
+    },
+
+    _drawOffscreenWithSymmetry(ctx, cx, cy, symmetryMode, count, rotation) {
+        // 计算缩放因子防止图案被裁剪
+        const scaleFactor = this._getSymmetryScaleFactor(symmetryMode, count);
+        
+        if (symmetryMode === 'spiral') {
+            this._drawSpiralOffscreen(ctx, cx, cy, count, rotation, scaleFactor);
         } else if (symmetryMode === 'mirror') {
-            this._drawMirrorOffscreen(ctx, cx, cy, count, rotation);
+            this._drawMirrorOffscreen(ctx, cx, cy, count, rotation, scaleFactor);
         } else {
-            this._drawRotationalOffscreen(ctx, cx, cy, count, rotation);
+            this._drawRotationalOffscreen(ctx, cx, cy, count, rotation, scaleFactor);
         }
     },
 
-    _drawRotationalOffscreen(ctx, cx, cy, count, rotation) {
+    _drawRotationalOffscreen(ctx, cx, cy, count, rotation, scaleFactor) {
         const angleStep = (2 * Math.PI) / count;
         for (let i = 0; i < count; i++) {
             const totalAngle = rotation + i * angleStep;
             ctx.save();
             ctx.translate(cx, cy);
             ctx.rotate(totalAngle);
+            ctx.scale(scaleFactor, scaleFactor);
             ctx.translate(-cx, -cy);
             ctx.drawImage(this.offscreenCanvas, 0, 0);
             ctx.restore();
@@ -458,14 +582,14 @@ const CanvasRenderer = {
      * 螺旋对称（修复坐标变换顺序）
      * 正确顺序：translate(cx,cy) → rotate → scale → translate(-cx,-cy)
      */
-    _drawSpiralOffscreen(ctx, cx, cy, count, rotation) {
+    _drawSpiralOffscreen(ctx, cx, cy, count, rotation, baseScaleFactor) {
         const { spiralScale } = StateManager.state;
         const scaleFactor = 1 + (spiralScale / 100) * 0.5;
         const angleStep = (2 * Math.PI) / count;
 
         for (let i = 0; i < count; i++) {
             const totalAngle = rotation + i * angleStep;
-            const s = Math.pow(scaleFactor, i);
+            const s = Math.pow(scaleFactor, i) * baseScaleFactor;
             ctx.save();
             // 正确顺序：平移到中心 → 旋转 → 缩放 → 平移回去
             ctx.translate(cx, cy);
@@ -483,7 +607,7 @@ const CanvasRenderer = {
      * 每个方向由 mirrorAngle = i * PI / count 决定
      * 使用变换矩阵完成反射：scale(-1,1) + rotate(mirrorAngle) 组合
      */
-    _drawMirrorOffscreen(ctx, cx, cy, count, rotation) {
+    _drawMirrorOffscreen(ctx, cx, cy, count, rotation, scaleFactor) {
         if (count <= 0) return;
 
         for (let i = 0; i < count; i++) {
@@ -496,8 +620,8 @@ const CanvasRenderer = {
 
             // 旋转使反射轴对齐 x 轴
             ctx.rotate(mirrorAngle + rotation);
-            // 沿 x 轴反射
-            ctx.scale(1, -1);
+            // 沿 x 轴反射并缩放
+            ctx.scale(scaleFactor, -scaleFactor);
             // 旋转回来
             ctx.rotate(-mirrorAngle - rotation);
 
@@ -508,33 +632,36 @@ const CanvasRenderer = {
     },
 
     _drawStrokeSet(ctx, strokes, cx, cy, symmetryMode, count, rotation) {
+        // 使用与离屏画布相同的缩放因子，防止实时笔画被裁剪
+        const scaleFactor = this._getSymmetryScaleFactor(symmetryMode, count);
+        
         if (symmetryMode === 'spiral') {
-            this._drawSpiralSymmetry(ctx, strokes, cx, cy, count, rotation);
+            this._drawSpiralSymmetry(ctx, strokes, cx, cy, count, rotation, scaleFactor);
         } else if (symmetryMode === 'mirror') {
-            this._drawMirrorSymmetry(ctx, strokes, cx, cy, count, rotation);
+            this._drawMirrorSymmetry(ctx, strokes, cx, cy, count, rotation, scaleFactor);
         } else {
-            this._drawRotationalSymmetry(ctx, strokes, cx, cy, count, rotation);
+            this._drawRotationalSymmetry(ctx, strokes, cx, cy, count, rotation, scaleFactor);
         }
     },
 
-    _drawRotationalSymmetry(ctx, strokes, cx, cy, count, rotation) {
+    _drawRotationalSymmetry(ctx, strokes, cx, cy, count, rotation, scaleFactor) {
         const angleStep = (2 * Math.PI) / count;
         const s = StateManager.state;
         for (let i = 0; i < count; i++) {
             const totalAngle = rotation + i * angleStep;
-            this._drawTransformedStrokes(ctx, strokes, cx, cy, totalAngle, null, null, s);
+            this._drawTransformedStrokes(ctx, strokes, cx, cy, totalAngle, null, scaleFactor, s);
         }
     },
 
-    _drawSpiralSymmetry(ctx, strokes, cx, cy, count, rotation) {
+    _drawSpiralSymmetry(ctx, strokes, cx, cy, count, rotation, scaleFactor) {
         const { spiralScale } = StateManager.state;
-        const scaleFactor = 1 + (spiralScale / 100) * 0.5;
+        const spiralFactor = 1 + (spiralScale / 100) * 0.5;
         const angleStep = (2 * Math.PI) / count;
         const s = StateManager.state;
 
         for (let i = 0; i < count; i++) {
             const totalAngle = rotation + i * angleStep;
-            const scale = Math.pow(scaleFactor, i);
+            const scale = Math.pow(spiralFactor, i) * scaleFactor;
             this._drawTransformedStrokes(ctx, strokes, cx, cy, totalAngle, null, scale, s);
         }
     },
@@ -542,12 +669,12 @@ const CanvasRenderer = {
     /**
      * 镜像对称当前笔画（支持任意 N）
      */
-    _drawMirrorSymmetry(ctx, strokes, cx, cy, count, rotation) {
+    _drawMirrorSymmetry(ctx, strokes, cx, cy, count, rotation, scaleFactor) {
         const s = StateManager.state;
         for (let i = 0; i < count; i++) {
             const mirrorAngle = (i * Math.PI) / Math.max(count, 1);
             // 使用 'mirror' mode: 先旋转对齐再反射
-            this._drawTransformedStrokes(ctx, strokes, cx, cy, rotation + mirrorAngle, 'mirror', null, s);
+            this._drawTransformedStrokes(ctx, strokes, cx, cy, rotation + mirrorAngle, 'mirror', scaleFactor, s);
         }
     },
 
@@ -780,7 +907,11 @@ const CanvasRenderer = {
         const totalRotation = rotation + (rotationOffset || 0);
         const offsetX = centerOffset ? centerOffset.x : 0;
         const offsetY = centerOffset ? centerOffset.y : 0;
-        const finalScale = scale || 1.0;
+        const animScale = scale || 1.0;
+        
+        // 计算对称缩放因子（与无动画版本一致，防止裁剪）
+        const symScaleFactor = this._getSymmetryScaleFactor(symmetryMode, count);
+        const finalScale = animScale * symScaleFactor;
 
         ctx.save();
         ctx.globalAlpha = alphaPulse || 1.0;
@@ -974,5 +1105,122 @@ const CanvasRenderer = {
             b = hue2rgb(p, q, h - 1/3);
         }
         return { r: r * 255, g: g * 255, b: b * 255 };
+    },
+
+    /**
+     * 白屏诊断功能 - 输出关键状态信息供分析
+     */
+    diagnose() {
+        const s = StateManager.state;
+        const info = {
+            // 画布状态
+            canvas: {
+                width: this.canvas?.width,
+                height: this.canvas?.height,
+                clientWidth: this.canvas?.clientWidth,
+                clientHeight: this.canvas?.clientHeight,
+                style: this.canvas ? {
+                    width: this.canvas.style.width,
+                    height: this.canvas.style.height,
+                    display: this.canvas.style.display,
+                    visibility: this.canvas.style.visibility,
+                    opacity: this.canvas.style.opacity
+                } : null
+            },
+            offscreenCanvas: {
+                width: this.offscreenCanvas?.width,
+                height: this.offscreenCanvas?.height
+            },
+            // 画布尺寸状态
+            canvasSize: {
+                canvasWidth: s.canvasWidth,
+                canvasHeight: s.canvasHeight,
+                trailMode: s.trailMode
+            },
+            // 动画状态
+            animation: {
+                isAnimating: s.isAnimating,
+                _animationTransforms: !!s._animationTransforms,
+                animationSpeed: s.animationSpeed,
+                currentRotation: s.currentRotation
+            },
+            // 渲染关键标记
+            renderFlags: {
+                needRedrawOffscreen: this.needRedrawOffscreen
+            },
+            // 笔画数据
+            strokes: {
+                count: s.strokes?.length || 0,
+                currentStrokeLength: s.currentStroke?.length || 0
+            },
+            // 对称设置
+            symmetry: {
+                mode: s.symmetryMode,
+                count: s.symmetryCount
+            },
+            // 背景设置
+            background: {
+                bgColor: s.bgColor,
+                resolvedBgColor: this._resolveBgColor(),
+                materialPalette: s.materialPalette,
+                colorScheme: s.colorScheme
+            },
+            // 混合模式
+            blendMode: s.blendMode || 'normal',
+            // 粒子系统状态
+            particles: {
+                enabled: s.particleEnabled,
+                count: s.particles?.length || 0
+            },
+            // 时间戳
+            timestamp: new Date().toISOString()
+        };
+
+        console.log('%c=== 白屏诊断报告 ===', 'color: #ff6b6b; font-weight: bold; font-size: 14px;');
+        console.log('%c复制以下 JSON 给开发者：', 'color: #4ecdc4; font-weight: bold;');
+        console.log(JSON.stringify(info, null, 2));
+        console.log('%c详细状态对象：', 'color: #45b7d1; font-weight: bold;');
+        console.log('StateManager.state:', s);
+        console.log('CanvasRenderer 对象:', this);
+        
+        // 检测可能的问题
+        const issues = [];
+        
+        if (!this.canvas || this.canvas.width <= 0 || this.canvas.height <= 0) {
+            issues.push('❌ 画布尺寸无效');
+        }
+        
+        if (s.canvasWidth <= 0 || s.canvasHeight <= 0) {
+            issues.push('❌ 状态中画布尺寸无效');
+        }
+        
+        if (this.canvas && (this.canvas.style.display === 'none' || this.canvas.style.visibility === 'hidden')) {
+            issues.push('❌ 画布被隐藏');
+        }
+        
+        if (this.canvas && this.canvas.style.opacity === '0') {
+            issues.push('❌ 画布透明度为0');
+        }
+        
+        if (!this.ctx || !this.canvas) {
+            issues.push('❌ 画布上下文未初始化');
+        }
+        
+        if (issues.length === 0) {
+            issues.push('✅ 未检测到明显问题，请检查渲染逻辑');
+        }
+        
+        console.log('%c可能的问题：', 'color: #feca57; font-weight: bold;');
+        issues.forEach(issue => console.log(issue));
+        
+        return info;
     }
+};
+
+// 全局诊断函数 - 可在控制台直接调用
+window.__diagnoseWhiteScreen = function() {
+    if (window.CanvasRenderer) {
+        return CanvasRenderer.diagnose();
+    }
+    console.error('CanvasRenderer 未找到');
 };

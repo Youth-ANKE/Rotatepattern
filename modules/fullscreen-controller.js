@@ -178,6 +178,16 @@ const FullscreenController = {
         this.velocityY = 0;
         document.body.classList.remove('fullscreen-mode');
 
+        // 清除全屏模式下的内联样式，恢复画布居中
+        const canvas = document.getElementById('kaleidoscope-canvas');
+        if (canvas) {
+            canvas.style.transform = '';
+            canvas.style.position = '';
+            canvas.style.left = '';
+            canvas.style.top = '';
+            canvas.style.transition = '';
+        }
+
         // 恢复画布到正常尺寸
         CanvasRenderer.resize();
 
@@ -477,6 +487,14 @@ const FullscreenController = {
                 if (StateManager.state.strokes.length === 0) return;
                 StateManager.clearStrokes();
                 ParticleSystem.clear();
+            });
+        }
+
+        // 随机生成按钮
+        const fsRandom = document.getElementById('fs-random-btn');
+        if (fsRandom) {
+            fsRandom.addEventListener('click', () => {
+                RandomGenerator.applyRandom();
             });
         }
     }

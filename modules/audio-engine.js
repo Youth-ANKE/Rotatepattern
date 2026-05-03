@@ -135,18 +135,18 @@ const AudioEngine = {
 
     _getBuiltinPlaylist() {
         return [
-            { title: '舒缓旋律 - 轻钢琴', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', source: 'soundhelix', duration: 300 },
-            { title: '海洋冥想 - 浪涛声', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', source: 'soundhelix', duration: 300 },
-            { title: '创意灵感 - 律动', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', source: 'soundhelix', duration: 300 },
-            { title: '日出 - 温暖氛围', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', source: 'soundhelix', duration: 300 },
-            { title: '月夜 - 静谧旋律', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', source: 'soundhelix', duration: 300 },
-            { title: '森林漫步 - 自然', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3', source: 'soundhelix', duration: 300 },
-            { title: '星空 - 梦幻电子', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3', source: 'soundhelix', duration: 300 },
-            { title: '花舞 - 轻快活泼', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3', source: 'soundhelix', duration: 300 },
-            { title: '山巅 - 空灵悠远', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3', source: 'soundhelix', duration: 300 },
-            { title: '潮汐 - 循环波纹', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3', source: 'soundhelix', duration: 300 },
-            { title: '微风 - 清新怡人', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3', source: 'soundhelix', duration: 300 },
-            { title: '庆典 - 欢乐氛围', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3', source: 'soundhelix', duration: 300 }
+            { title: '舒缓旋律 - 轻钢琴', artist: 'SoundHelix', url: '/public/music/song-1.mp3', source: 'local', duration: 300, onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
+            { title: '海洋冥想 - 浪涛声', artist: 'SoundHelix', url: '/public/music/song-2.mp3', source: 'local', duration: 300, onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
+            { title: '创意灵感 - 律动', artist: 'SoundHelix', url: '/public/music/song-3.mp3', source: 'local', duration: 300, onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
+            { title: '日出 - 温暖氛围', artist: 'SoundHelix', url: '/public/music/song-4.mp3', source: 'local', duration: 300, onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
+            { title: '月夜 - 静谧旋律', artist: 'SoundHelix', url: '/public/music/song-5.mp3', source: 'local', duration: 300, onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3' },
+            { title: '森林漫步 - 自然', artist: 'SoundHelix', url: '/public/music/song-6.mp3', source: 'local', duration: 300, onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3' },
+            { title: '星空 - 梦幻电子', artist: 'SoundHelix', url: '/public/music/song-7.mp3', source: 'local', duration: 300, onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3' },
+            { title: '花舞 - 轻快活泼', artist: 'SoundHelix', url: '/public/music/song-8.mp3', source: 'local', duration: 300, onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' },
+            { title: '山巅 - 空灵悠远', artist: 'SoundHelix', url: '/public/music/song-9.mp3', source: 'local', duration: 300, onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3' },
+            { title: '潮汐 - 循环波纹', artist: 'SoundHelix', url: '/public/music/song-10.mp3', source: 'local', duration: 300, onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3' },
+            { title: '微风 - 清新怡人', artist: 'SoundHelix', url: '/public/music/song-11.mp3', source: 'local', duration: 300, onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3' },
+            { title: '庆典 - 欢乐氛围', artist: 'SoundHelix', url: '/public/music/song-12.mp3', source: 'local', duration: 300, onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3' }
         ];
     },
 
@@ -248,10 +248,20 @@ const AudioEngine = {
         }
     },
 
-    async _playSingleTrack(track) {
+    async _playSingleTrack(track, _isRetry) {
         const musicUrl = track.url;
         if (!musicUrl) { this.onlineMusicError = '曲目URL为空'; return false; }
-        const proxyUrl = `${window.location.origin}/api/online-music/stream?url=${encodeURIComponent(musicUrl)}`;
+
+        // 本地文件直接播放，在线文件通过代理
+        let audioSrc;
+        const isLocalUrl = musicUrl.startsWith('/public/') || musicUrl.startsWith('/music/');
+        if (isLocalUrl) {
+            // 本地内置音乐文件，直接使用 URL（无需代理，express.static 已提供）
+            audioSrc = musicUrl;
+        } else {
+            // 在线音乐，通过服务端代理播放
+            audioSrc = `${window.location.origin}/api/online-music/stream?url=${encodeURIComponent(musicUrl)}`;
+        }
 
         // 完全清理旧 audio 元素（包括事件监听）
         if (this.onlineMusicAudio) {
@@ -265,7 +275,7 @@ const AudioEngine = {
 
         const audio = new Audio();
         audio.crossOrigin = 'anonymous';
-        audio.src = proxyUrl;
+        audio.src = audioSrc;
         audio.loop = this.playlistMode === 'loop';
         audio.preload = 'auto';
         audio.volume = StateManager.state.onlineMusicVolume || 0.5;
@@ -280,7 +290,27 @@ const AudioEngine = {
             this.onlineMusicPlaying = true;
             this.onlineMusicError = null;
             this.onlineMusicData = track;
-            console.log(`[AudioEngine] 开始播放: ${track.title} (${this.playlistIndex + 1}/${this.playlist.length})`);
+            console.log(`[AudioEngine] 开始播放: ${track.title} (${this.playlistIndex + 1}/${this.playlist.length}) [${isLocalUrl ? '本地' : '在线'}]`);
+
+            // 本地文件加载失败时，回退到在线 URL
+            audio.addEventListener('error', () => {
+                if (signal.aborted) return;
+                // 本地文件失败且未重试过，回退到在线 URL
+                if (isLocalUrl && !_isRetry && track.onlineUrl) {
+                    console.warn(`[AudioEngine] 本地文件失败，回退在线: ${track.title}`);
+                    this.onlineMusicPlaying = false;
+                    this._cleanupAudioElement(audio);
+                    if (this.onlineMusicAudio === audio) this.onlineMusicAudio = null;
+                    const retryTrack = { ...track, url: track.onlineUrl };
+                    this._playSingleTrack(retryTrack, true);
+                    return;
+                }
+                console.error('[AudioEngine] 播放错误:', audio.error?.message);
+                this.onlineMusicError = audio.error?.message || '播放错误';
+                this.onlineMusicPlaying = false;
+                this._cleanupAudioElement(audio);
+                if (this.onlineMusicAudio === audio) this.onlineMusicAudio = null;
+            }, { signal });
 
             audio.addEventListener('ended', () => {
                 if (signal.aborted) return;
@@ -291,15 +321,6 @@ const AudioEngine = {
                     this.playlistIndex = (this.playlistIndex + 1) % this.playlist.length;
                     this._playSingleTrack(this.playlist[this.playlistIndex]);
                 }
-            }, { signal });
-
-            audio.addEventListener('error', (e) => {
-                if (signal.aborted) return;
-                console.error('[AudioEngine] 播放错误:', audio.error?.message || e);
-                this.onlineMusicError = audio.error?.message || '播放错误';
-                this.onlineMusicPlaying = false;
-                this._cleanupAudioElement(audio);
-                if (this.onlineMusicAudio === audio) this.onlineMusicAudio = null;
             }, { signal });
 
             return true;
@@ -633,14 +654,97 @@ const AudioEngine = {
         this._trackNode(null, g, null);
     },
 
+    // 内置背景音乐 Audio 元素
+    _builtinMusicAudio: null,
+    _builtinMusicIndex: 0,
+
+    /**
+     * 获取内置音乐播放列表（本地文件优先）
+     */
+    _getBuiltinMusicList() {
+        const titles = [
+            '舒缓旋律 - 轻钢琴', '海洋冥想 - 浪涛声', '创意灵感 - 律动',
+            '日出 - 温暖氛围', '月夜 - 静谧旋律', '森林漫步 - 自然',
+            '星空 - 梦幻电子', '花舞 - 轻快活泼', '山巅 - 空灵悠远',
+            '潮汐 - 循环波纹', '微风 - 清新怡人', '庆典 - 欢乐氛围'
+        ];
+        return titles.map((title, i) => ({
+            title,
+            artist: 'SoundHelix',
+            localUrl: `/public/music/song-${i + 1}.mp3`,
+            onlineUrl: `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-${i + 1}.mp3`,
+            index: i
+        }));
+    },
+
     toggleMusic(enabled) {
         try {
             if (!this.ensureInit()) return;
             if (enabled === StateManager.state.musicEnabled) return;
-            if (enabled) { this.musicNoteIndex = 0; this._scheduleNextNote(); }
-            else { if (this.musicInterval) { clearTimeout(this.musicInterval); this.musicInterval = null; } }
+            if (enabled) {
+                // 播放内置 mp3 音乐
+                this._playBuiltinMusic();
+            } else {
+                // 停止内置音乐
+                this._stopBuiltinMusic();
+                // 同时停止旧的合成音符（兼容）
+                if (this.musicInterval) { clearTimeout(this.musicInterval); this.musicInterval = null; }
+            }
             StateManager.setState({ musicEnabled: enabled });
         } catch (e) { console.error('[AudioEngine] toggleMusic 错误:', e); }
+    },
+
+    async _playBuiltinMusic() {
+        try {
+            // 停止旧的
+            this._stopBuiltinMusic();
+
+            const list = this._getBuiltinMusicList();
+            const track = list[this._builtinMusicIndex % list.length];
+
+            const audio = new Audio();
+            // 尝试本地文件
+            audio.src = track.localUrl;
+            audio.loop = true; // 内置音乐默认循环
+            audio.volume = StateManager.state.musicVolume || 0.5;
+            audio.preload = 'auto';
+
+            try {
+                await audio.play();
+                this._builtinMusicAudio = audio;
+                console.log(`[AudioEngine] 内置音乐播放: ${track.title} [本地]`);
+            } catch (playErr) {
+                // 本地文件播放失败，回退到在线 URL
+                console.warn(`[AudioEngine] 本地音乐播放失败，回退在线: ${track.title}`);
+                this._cleanupAudioElement(audio);
+
+                try {
+                    const fallbackAudio = new Audio();
+                    fallbackAudio.src = `${window.location.origin}/api/online-music/stream?url=${encodeURIComponent(track.onlineUrl)}`;
+                    fallbackAudio.loop = true;
+                    fallbackAudio.volume = StateManager.state.musicVolume || 0.5;
+                    await fallbackAudio.play();
+                    this._builtinMusicAudio = fallbackAudio;
+                    console.log(`[AudioEngine] 内置音乐播放: ${track.title} [在线]`);
+                } catch (onlineErr) {
+                    console.warn('[AudioEngine] 在线也失败，回退合成音符:', onlineErr.message);
+                    // 回退到合成音符
+                    this.musicNoteIndex = 0;
+                    this._scheduleNextNote();
+                }
+            }
+        } catch (e) {
+            console.warn('[AudioEngine] 内置音乐异常，回退合成音符:', e.message);
+            this.musicNoteIndex = 0;
+            this._scheduleNextNote();
+        }
+    },
+
+    _stopBuiltinMusic() {
+        if (this._builtinMusicAudio) {
+            this._cleanupAudioElement(this._builtinMusicAudio);
+            this._builtinMusicAudio = null;
+        }
     },
 
     _scheduleNextNote() {
@@ -719,6 +823,17 @@ const AudioEngine = {
             StateManager.setState({ musicTheme: theme });
             this.musicNoteIndex = 0;
             if (StateManager.state.musicEnabled) {
+                // 如果正在播放内置 mp3，切换到对应主题的曲目
+                if (this._builtinMusicAudio) {
+                    const themeNames = ['aurora', 'cyber', 'forest', 'dream', 'temple', 'space', 'jazz', 'ocean'];
+                    const idx = themeNames.indexOf(theme);
+                    if (idx >= 0) {
+                        this._builtinMusicIndex = idx % this._getBuiltinMusicList().length;
+                        this._playBuiltinMusic();
+                        return;
+                    }
+                }
+                // 否则重新调度合成音符
                 if (this.musicInterval) clearTimeout(this.musicInterval);
                 this._scheduleNextNote();
             }
@@ -781,5 +896,6 @@ const AudioEngine = {
     setMusicVolume(vol) {
         StateManager.setState({ musicVolume: vol });
         if (this.musicGain) this.musicGain.gain.value = vol;
+        if (this._builtinMusicAudio) this._builtinMusicAudio.volume = vol;
     }
 };

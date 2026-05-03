@@ -29,6 +29,7 @@ const StateManager = {
         canvasWidth: 800,
         canvasHeight: 800,
         bgColor: '#0a0a1a',
+        bgGrad: '#0a0a1a',    // 渐变背景色（径向渐变中心色）
         currentRotation: 0,
         isDrawing: false,
         strokes: [],
@@ -219,6 +220,21 @@ const StateManager = {
     },
 
     /**
+     * 批量更新状态但不立即通知（用于减少渲染触发）
+     * @param {Object} updates - 要更新的状态对象
+     * @param {boolean} [notifyNow=true] - 是否立即通知
+     */
+    batchSetState(updates, notifyNow = false) {
+        if (!updates || typeof updates !== 'object') return;
+        
+        Object.assign(this.state, updates);
+        
+        if (notifyNow) {
+            this.notify();
+        }
+    },
+
+    /**
      * 添加一笔画到状态，并自动压入历史
      * 统一入口，确保状态一致性和历史追踪
      * @param {Object} stroke - 笔画点数组（带 _color 属性）
@@ -288,21 +304,25 @@ const StateManager = {
 
     /**
      * 批量替换所有笔画（用于加载项目、随机生成等场景）
-     * 重建完整的历史记录
+     * 优化：减少不必要的过滤和拷贝
      * @param {Array} strokes - 笔画数组
      */
     replaceStrokes(strokes) {
         if (!Array.isArray(strokes)) return;
-        this.state.strokes = strokes.slice(); // 浅拷贝
-        this._history = strokes.filter(s => Array.isArray(s) && s.length >= 2).map(s => s);
-        this._historyIndex = this._history.length - 1;
-        // 历史上限保护
+        
+        // 直接赋值，避免不必要的过滤
+        this.state.strokes = strokes;
+        
+        // 只保留有效笔画的历史引用
+        this._history = strokes.filter(s => s && s.length >= 2);
+        this._historyIndex = Math.min(this._history.length - 1, this._maxHistory - 1);
+        
+        // 历史上限保护（简化）
         if (this._history.length > this._maxHistory) {
-            const start = this._history.length - this._maxHistory;
-            this._history = this._history.slice(start);
+            this._history = this._history.slice(-this._maxHistory);
             this._historyIndex = this._history.length - 1;
-            this.state.strokes = this._history.slice();
         }
+        
         this.notify();
     },
 
@@ -434,6 +454,7 @@ const StateManager = {
             const data = {
                 strokeColor: this.state.strokeColor,
                 bgColor: this.state.bgColor,
+                bgGrad: this.state.bgGrad,
                 strokeWidth: this.state.strokeWidth,
                 symmetryCount: this.state.symmetryCount,
                 symmetryMode: this.state.symmetryMode,
@@ -580,6 +601,8 @@ const StateManager = {
         const snapshot = {
             strokeColor: s.strokeColor,
             strokeWidth: s.strokeWidth,
+            bgColor: s.bgColor,
+            bgGrad: s.bgGrad,
             brushType: s.brushType,
             symmetryMode: s.symmetryMode,
             symmetryCount: s.symmetryCount,
@@ -602,8 +625,7 @@ const StateManager = {
             colorDither: s.colorDither,
             animationMode: s.animationMode,
             animationSpeed: s.animationSpeed,
-            density: s.density,
-            bgColor: s.bgColor
+            density: s.density
         };
         return snapshot;
     },

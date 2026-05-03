@@ -39,6 +39,7 @@ ensureDir(DATA_DIR);
 ensureDir(PROJECTS_DIR);
 ensureDir(GALLERY_DIR);
 ensureDir(PUBLIC_DIR + '/icons');
+ensureDir(PUBLIC_DIR + '/music'); // 确保音乐目录存在
 
 // ==================== Multer 文件上传配置 ====================
 const storage = multer.diskStorage({
@@ -622,46 +623,45 @@ app.get('/api/online-music/playlist', (req, res) => {
 
 /**
  * 获取完整播放列表（12首免费可商用音乐）
- * 全部来自 SoundHelix 免费可商用音乐
+ * 优先使用本地文件，不存在时回退到在线 URL
  */
 function getExtendedPlaylist() {
-    return [
-        { title: '舒缓旋律 - 轻钢琴', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', source: 'soundhelix', duration: 300 },
-        { title: '海洋冥想 - 浪涛声', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', source: 'soundhelix', duration: 300 },
-        { title: '创意灵感 - 律动', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', source: 'soundhelix', duration: 300 },
-        { title: '日出 - 温暖氛围', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', source: 'soundhelix', duration: 300 },
-        { title: '月夜 - 静谧旋律', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', source: 'soundhelix', duration: 300 },
-        { title: '森林漫步 - 自然', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3', source: 'soundhelix', duration: 300 },
-        { title: '星空 - 梦幻电子', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3', source: 'soundhelix', duration: 300 },
-        { title: '花舞 - 轻快活泼', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3', source: 'soundhelix', duration: 300 },
-        { title: '山巅 - 空灵悠远', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3', source: 'soundhelix', duration: 300 },
-        { title: '潮汐 - 循环波纹', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3', source: 'soundhelix', duration: 300 },
-        { title: '微风 - 清新怡人', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3', source: 'soundhelix', duration: 300 },
-        { title: '庆典 - 欢乐氛围', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3', source: 'soundhelix', duration: 300 }
+    const MUSIC_DIR_PATH = path.join(PUBLIC_DIR, 'music');
+    const songs = [
+        { title: '舒缓旋律 - 轻钢琴', artist: 'SoundHelix', file: 'song-1.mp3', onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', source: 'soundhelix', duration: 300 },
+        { title: '海洋冥想 - 浪涛声', artist: 'SoundHelix', file: 'song-2.mp3', onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', source: 'soundhelix', duration: 300 },
+        { title: '创意灵感 - 律动', artist: 'SoundHelix', file: 'song-3.mp3', onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', source: 'soundhelix', duration: 300 },
+        { title: '日出 - 温暖氛围', artist: 'SoundHelix', file: 'song-4.mp3', onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', source: 'soundhelix', duration: 300 },
+        { title: '月夜 - 静谧旋律', artist: 'SoundHelix', file: 'song-5.mp3', onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', source: 'soundhelix', duration: 300 },
+        { title: '森林漫步 - 自然', artist: 'SoundHelix', file: 'song-6.mp3', onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3', source: 'soundhelix', duration: 300 },
+        { title: '星空 - 梦幻电子', artist: 'SoundHelix', file: 'song-7.mp3', onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3', source: 'soundhelix', duration: 300 },
+        { title: '花舞 - 轻快活泼', artist: 'SoundHelix', file: 'song-8.mp3', onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3', source: 'soundhelix', duration: 300 },
+        { title: '山巅 - 空灵悠远', artist: 'SoundHelix', file: 'song-9.mp3', onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3', source: 'soundhelix', duration: 300 },
+        { title: '潮汐 - 循环波纹', artist: 'SoundHelix', file: 'song-10.mp3', onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3', source: 'soundhelix', duration: 300 },
+        { title: '微风 - 清新怡人', artist: 'SoundHelix', file: 'song-11.mp3', onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3', source: 'soundhelix', duration: 300 },
+        { title: '庆典 - 欢乐氛围', artist: 'SoundHelix', file: 'song-12.mp3', onlineUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3', source: 'soundhelix', duration: 300 }
     ];
+
+    return songs.map(song => {
+        const localPath = path.join(MUSIC_DIR_PATH, song.file);
+        const hasLocal = fs.existsSync(localPath) && fs.statSync(localPath).size > 50000;
+        // 优先使用本地路径（通过 /public/music/ 访问），否则回退到在线 URL
+        const url = hasLocal ? `/public/music/${song.file}` : song.onlineUrl;
+        const source = hasLocal ? 'local' : song.source;
+        return { title: song.title, artist: song.artist, url, source, duration: song.duration };
+    });
 }
 
 /**
- * 获取备用音乐（扩充至12首免费可商用音乐）
+ * 获取备用音乐（优先本地，回退在线）
  * 当所有第三方API都不可用时使用
- * 来源: SoundHelix 全部12首免费可商用音乐 + 喜马拉雅备用
  */
 function getFallbackMusic() {
-    const fallbackList = [
-        { title: '🎵 舒缓旋律 - 轻钢琴', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', source: 'soundhelix' },
-        { title: '🌊 海洋冥想 - 浪涛声', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', source: 'soundhelix' },
-        { title: '🎵 创意灵感 - 律动', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', source: 'soundhelix' },
-        { title: '🌅 日出 - 温暖氛围', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', source: 'soundhelix' },
-        { title: '🌙 月夜 - 静谧旋律', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', source: 'soundhelix' },
-        { title: '🌿 森林漫步 - 自然', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3', source: 'soundhelix' },
-        { title: '✨ 星空 - 梦幻电子', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3', source: 'soundhelix' },
-        { title: '🌸 花舞 - 轻快活泼', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3', source: 'soundhelix' },
-        { title: '🏔️ 山巅 - 空灵悠远', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3', source: 'soundhelix' },
-        { title: '🌊 潮汐 - 循环波纹', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3', source: 'soundhelix' },
-        { title: '🍃 微风 - 清新怡人', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3', source: 'soundhelix' },
-        { title: '🎆 庆典 - 欢乐氛围', artist: 'SoundHelix', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3', source: 'soundhelix' }
-    ];
-    const music = fallbackList[Math.floor(Math.random() * fallbackList.length)];
+    const playlist = getExtendedPlaylist();
+    // 只从本地可用的曲目中随机选择
+    const localTracks = playlist.filter(t => t.source === 'local');
+    const pool = localTracks.length > 0 ? localTracks : playlist;
+    const music = pool[Math.floor(Math.random() * pool.length)];
     return {
         success: true,
         title: music.title,
@@ -884,10 +884,18 @@ app.get('/manifest.json', (req, res) => {
     res.sendFile(path.join(PUBLIC_DIR, 'manifest.json'));
 });
 
-// 提供 public 目录下的静态文件（icons 等）
+// 提供 public 目录下的静态文件（icons、music 等）
 app.use('/public', express.static(PUBLIC_DIR, {
     maxAge: '7d',
-    etag: true
+    etag: true,
+    setHeaders: (res, filePath) => {
+        // 确保 mp3 文件有正确的 MIME 类型
+        if (filePath.endsWith('.mp3')) {
+            res.setHeader('Content-Type', 'audio/mpeg');
+            res.setHeader('Accept-Ranges', 'bytes');
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+        }
+    }
 }));
 
 // ==================== 静态文件服务 ====================
@@ -998,3 +1006,35 @@ function startServer(port) {
 }
 
 startServer(PORT);
+
+// ==================== 启动时自动下载缺失音乐 ====================
+function autoDownloadMusic() {
+    const MUSIC_DIR_PATH = path.join(PUBLIC_DIR, 'music');
+    let missingCount = 0;
+    for (let i = 1; i <= 12; i++) {
+        const f = path.join(MUSIC_DIR_PATH, `song-${i}.mp3`);
+        if (!fs.existsSync(f) || fs.statSync(f).size < 50000) {
+            missingCount++;
+        }
+    }
+    if (missingCount > 0) {
+        console.log(`[音乐] 检测到 ${missingCount} 首音乐缺失，后台下载中...`);
+        const { execFile } = require('child_process');
+        execFile(process.execPath, [path.join(__dirname, 'scripts', 'download-music.js')], {
+            timeout: 600000, // 10分钟超时
+            env: { ...process.env, NODE_TLS_REJECT_UNAUTHORIZED: '0' }
+        }, (err, stdout, stderr) => {
+            if (err) {
+                console.log(`[音乐] 自动下载出错: ${err.message}`);
+            } else {
+                console.log(`[音乐] 自动下载完成`);
+                if (stdout) console.log(stdout.trim());
+            }
+        });
+    } else {
+        console.log(`[音乐] 12首本地音乐全部就绪`);
+    }
+}
+
+// 延迟5秒后启动下载，不阻塞服务启动
+setTimeout(autoDownloadMusic, 5000);

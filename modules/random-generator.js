@@ -11,6 +11,11 @@
  * 每次点击 R 都是一幅独一无二的艺术品！
  */
 const RandomGenerator = {
+    // 点击防抖：防止快速点击导致卡顿
+    _lastApplyTime: 0,
+    _applyDebounce: 150, // 最小点击间隔（毫秒）
+    _isApplying: false,
+
     // ===== 45套高端配色方案 =====
     palettes: [
         // === 经典系列 ===
@@ -43,17 +48,17 @@ const RandomGenerator = {
 
         // === 梦幻系列 ===
         { name: '银河星云',   bg: '#05001a', bgGrad: '#1a0033', stroke: '#ff66aa', glow: '#aa66ff', accent: '#66ccff', mood: 'dream' },
-        { name: '童话森林',   bg: '#1a1a2e', bgGrad: '#2e1a3e', stroke: '#ff88cc', glow: '#ffaadd', accent: '#88ffaa', mood: 'dream' },
+        { name: '童话森林',   bg: '#1a1a2e', bgGrad: '#2e1a3e', stroke: '#ffaadd', glow: '#ffccdd', accent: '#88ffaa', mood: 'dream' },
         { name: '星空水彩',   bg: '#f0eef8', bgGrad: '#e8e4f0', stroke: '#6688cc', glow: '#88aadd', accent: '#cc88aa', mood: 'dream' },
         { name: '极彩梦境',   bg: '#2e0a2e', bgGrad: '#1a0a3e', stroke: '#ff6644', glow: '#ff8866', accent: '#44ff88', mood: 'dream' },
         { name: '月下仙境',   bg: '#0a0a22', bgGrad: '#1a1a3e', stroke: '#c0c8ff', glow: '#d0d8ff', accent: '#ffcc88', mood: 'dream' },
 
         // === 异域风情系列 ===
-        { name: '摩洛哥蓝',   bg: '#002040', bgGrad: '#001830', stroke: '#4488bb', glow: '#66aadd', accent: '#cc8844', mood: 'ethnic' },
+        { name: '摩洛哥蓝',   bg: '#002040', bgGrad: '#001830', stroke: '#88ccff', glow: '#aaddff', accent: '#ffcc88', mood: 'ethnic' },
         { name: '印度纱丽',   bg: '#1a0010', bgGrad: '#2e0020', stroke: '#ff4488', glow: '#ff66aa', accent: '#ffcc00', mood: 'ethnic' },
         { name: '非洲日落',   bg: '#2e1000', bgGrad: '#1a0a00', stroke: '#ff6600', glow: '#ff8844', accent: '#ffcc00', mood: 'ethnic' },
         { name: '波斯地毯',   bg: '#1a0010', bgGrad: '#2e1020', stroke: '#cc3344', glow: '#dd5577', accent: '#4488aa', mood: 'ethnic' },
-        { name: '玛雅文明',   bg: '#002010', bgGrad: '#003020', stroke: '#44aa66', glow: '#66cc88', accent: '#cc8844', mood: 'ethnic' },
+        { name: '玛雅文明',   bg: '#002010', bgGrad: '#003020', stroke: '#88ffaa', glow: '#aaffcc', accent: '#ffcc44', mood: 'ethnic' },
 
         // === 极简现代系列 ===
         { name: '黑白几何',   bg: '#f8f8f8', bgGrad: '#ececec', stroke: '#1a1a1a', glow: '#888888', accent: '#ff4444', mood: 'modern' },
@@ -109,7 +114,7 @@ const RandomGenerator = {
         const palette = this.palettes[Math.floor(Math.random() * this.palettes.length)];
 
         // ---- 随机对称参数 ----
-        const evens = [4, 6, 8, 10, 12, 16, 20, 24, 32];
+        const evens = [4, 6, 8, 10, 12]; // 限制对称数，防止过高导致卡顿
         const symmetryCount = evens[Math.floor(Math.random() * evens.length)];
 
         // ---- 随机速度 ----
@@ -197,24 +202,37 @@ const RandomGenerator = {
 
     /**
      * 生成多层叠加笔画（2~3层）
+     * 优化：限制每层笔画数量，减少性能压力
      */
     _generateMultiLayerStrokes(config, palette) {
-        const { canvasWidth, canvasHeight } = StateManager.state;
-        const cx = canvasWidth / 2;
-        const cy = canvasHeight / 2;
-        const maxR = Math.min(cx, cy) * 0.92;
+        const state = StateManager.state;
+        const cx = state.canvasWidth / 2;
+        const cy = state.canvasHeight / 2;
+        // 考虑对称数量，缩小maxR防止对称旋转后图案被裁剪
+        // 对称数越多，扇区角度越小，需要留更多空间
+        const symCount = config.symmetryCount || 6;
+        let maxR = Math.min(cx, cy) * 0.92;
+        if (symCount <= 4) {
+            maxR *= 0.85;
+        } else if (symCount <= 8) {
+            maxR *= 0.75;
+        } else if (symCount <= 12) {
+            maxR *= 0.7;
+        } else {
+            maxR *= 0.65;
+        }
 
         let allStrokes = [];
-        const layerCount = 2 + Math.floor(Math.random() * 2); // 2~3层
+        const layerCount = 2; // 固定2层，减少生成量
 
-        // 随机选2~3个不同的生成器
+        // 随机选2个不同的生成器
         const generators = this._pickRandomGenerators(layerCount);
 
         for (let i = 0; i < layerCount; i++) {
             const generator = generators[i];
-            // 每层不同的密度和尺寸
-            const layerScale = 0.6 + Math.random() * 0.4;
-            const layerMaxR = maxR * (0.5 + i * 0.25);
+            // 缩小尺寸范围
+            const layerScale = 0.7 + Math.random() * 0.2;
+            const layerMaxR = maxR * (0.5 + i * 0.3);
             
             // 生成这层时用不同的调色板变体
             const layerPalette = this._derivePalette(palette, i, layerCount);
@@ -222,8 +240,8 @@ const RandomGenerator = {
             const strokes = this._invokeGenerator(
                 generator,
                 cx, cy, layerMaxR * layerScale,
-                2 + Math.floor(Math.random() * 3), // 每层笔画数
-                this._generateStrokeColors(layerPalette, 8 + Math.floor(Math.random() * 8)),
+                2 + Math.floor(Math.random() * 2), // 减少每层笔画数 2-3个
+                this._generateStrokeColors(layerPalette, 6 + Math.floor(Math.random() * 4)),
                 config, layerPalette
             );
 
@@ -234,17 +252,23 @@ const RandomGenerator = {
             });
 
             allStrokes = allStrokes.concat(strokes);
+            
+            // 限制总笔画数，防止过度生成
+            if (allStrokes.length > 150) {
+                console.log('[RandomGenerator] 笔画数量已达上限，停止生成');
+                break;
+            }
         }
 
-        // 添加装饰元素层（点、小圆、光环等）
-        if (config.decorativeEnabled) {
+        // 添加装饰元素层（点、小圆、光环等）- 减少数量
+        if (config.decorativeEnabled && allStrokes.length < 120) {
             const decorStrokes = this._generateDecorations(cx, cy, maxR, config, palette);
             decorStrokes.forEach(s => { s._layer = 3; s._opacity = 0.5 + Math.random() * 0.5; });
             allStrokes = allStrokes.concat(decorStrokes);
         }
 
         // 添加边框
-        if (config.borderEnabled) {
+        if (config.borderEnabled && allStrokes.length < 130) {
             const borderStrokes = this._generateBorder(cx, cy, maxR, config, palette);
             borderStrokes.forEach(s => { s._layer = 4; s._opacity = 0.8; });
             allStrokes = allStrokes.concat(borderStrokes);
@@ -253,7 +277,8 @@ const RandomGenerator = {
         // 最终安全检查：如果没有任何笔画，强制生成保底图案
         if (allStrokes.length === 0) {
             console.warn('[RandomGenerator] 所有层都没有生成笔画，使用保底图案');
-            const fallbackStrokes = this.mandala(cx, cy, maxR, 3, colors, config, palette);
+            const fallbackColors = this._generateStrokeColors(palette, 8);
+            const fallbackStrokes = this.mandala(cx, cy, maxR, 3, fallbackColors, config, palette);
             fallbackStrokes.forEach((s, i) => { s._layer = i; s._opacity = 0.9; });
             allStrokes = fallbackStrokes;
         }
@@ -302,28 +327,41 @@ const RandomGenerator = {
      */
     _invokeGenerator(name, cx, cy, maxR, count, colors, config, palette) {
         const advancedGenerators = ['fluidFlow', 'terrainContour', 'evolutionPattern', 'lavaLamp', 'polarPattern', 'nebulaCloud'];
+        const localGenerators = ['mandala', 'goldenSpiral', 'islamicGeo', 'fractalTree', 'celestialOrbits', 
+            'waveInterference', 'laceFiligree', 'tessellation', 'zentangle', 'radialBurst', 
+            'flowerPetals', 'spiralWave', 'concentricRings', 'zigzagRays', 'abstractScribble', 
+            'starburst', 'feathers', 'ripples'];
         
         let strokes = [];
         
         try {
-            if (advancedGenerators.includes(name)) {
-                // 确保 AdvancedGenerators 和依赖已加载
-                if (typeof AdvancedGenerators !== 'undefined' && typeof AdvancedGenerators[name] === 'function') {
-                    strokes = AdvancedGenerators[name](cx, cy, maxR, count, colors, config, palette);
-                }
-            } else if (typeof this[name] === 'function') {
-                // 调用本地生成器
+            // 优先使用本地生成器（更稳定）
+            if (localGenerators.includes(name) && typeof this[name] === 'function') {
                 strokes = this[name](cx, cy, maxR, count, colors, config, palette);
+            } else if (advancedGenerators.includes(name)) {
+                // 高级生成器需要依赖模块
+                if (typeof AdvancedGenerators !== 'undefined' && 
+                    typeof AdvancedGenerators[name] === 'function' &&
+                    typeof NoiseGenerator !== 'undefined') {
+                    strokes = AdvancedGenerators[name](cx, cy, maxR, count, colors, config, palette);
+                } else {
+                    console.warn(`[RandomGenerator] 高级生成器 ${name} 缺少依赖，降级到本地生成器`);
+                    // 降级到本地生成器
+                    const fallback = localGenerators[Math.floor(Math.random() * localGenerators.length)];
+                    strokes = this[fallback](cx, cy, maxR, count, colors, config, palette);
+                }
+            } else {
+                console.warn(`[RandomGenerator] 未知的生成器 ${name}，使用保底`);
             }
         } catch (e) {
-            console.warn(`[RandomGenerator] 生成器 ${name} 出错:`, e);
+            console.warn(`[RandomGenerator] 生成器 ${name} 出错:`, e.message || e);
             strokes = [];
         }
         
         // 安全检查：如果没生成任何笔画，使用 fallback
         if (!Array.isArray(strokes) || strokes.length === 0) {
-            console.warn(`[RandomGenerator] 生成器 ${name} 未返回笔画，使用 fallback`);
-            const fallbacks = ['mandala', 'starburst', 'goldenSpiral'];
+            console.warn(`[RandomGenerator] 生成器 ${name} 未返回笔画，使用保底图案`);
+            const fallbacks = ['mandala', 'starburst', 'goldenSpiral', 'radialBurst'];
             const fallbackName = fallbacks[Math.floor(Math.random() * fallbacks.length)];
             strokes = this[fallbackName](cx, cy, maxR, Math.max(2, count), colors, config, palette);
         }
@@ -369,17 +407,18 @@ const RandomGenerator = {
 
     /**
      * 生成装饰元素（散点、小圆、光环）
+     * 优化：减少装饰数量提升性能
      */
     _generateDecorations(cx, cy, maxR, config, palette) {
         const strokes = [];
-        const decorCount = 10 + Math.floor(Math.random() * 30);
+        const decorCount = 8 + Math.floor(Math.random() * 12); // 减少装饰数量
         
         // 散点
         const dotColor = palette.accent || palette.stroke;
         for (let i = 0; i < decorCount; i++) {
             const angle = Math.random() * 2 * Math.PI;
             const r = maxR * (0.15 + Math.random() * 0.75);
-            const size = 1 + Math.random() * 4;
+            const size = 1 + Math.random() * 3;
             
             // 小圆点用两个点表示（短线）
             const dot = [
@@ -391,11 +430,11 @@ const RandomGenerator = {
             strokes.push(dot);
         }
 
-        // 有时加光环
+        // 有时加光环（减少段数）
         if (Math.random() > 0.5) {
             const haloR = maxR * (0.2 + Math.random() * 0.5);
             const halo = [];
-            const segments = 60 + Math.floor(Math.random() * 40);
+            const segments = 30 + Math.floor(Math.random() * 20); // 减少段数
             for (let i = 0; i <= segments; i++) {
                 const angle = (2 * Math.PI * i) / segments;
                 const wobble = Math.sin(angle * 5 + Math.random() * 3) * 2;
@@ -414,11 +453,12 @@ const RandomGenerator = {
 
     /**
      * 生成边框装饰
+     * 优化：减少边框复杂度
      */
     _generateBorder(cx, cy, maxR, config, palette) {
         const strokes = [];
         const borderR = maxR * 0.97;
-        const segs = 80 + Math.floor(Math.random() * 40);
+        const segs = 40 + Math.floor(Math.random() * 20); // 减少段数
         
         // 外边框
         const border = [];
@@ -433,8 +473,8 @@ const RandomGenerator = {
         border._color = palette.accent || palette.stroke;
         strokes.push(border);
 
-        // 内框线（有时）
-        if (Math.random() > 0.5) {
+        // 内框线（减少概率）
+        if (Math.random() > 0.7) {
             const innerR = borderR * 0.92;
             const inner = [];
             for (let i = 0; i <= segs; i++) {
@@ -448,9 +488,9 @@ const RandomGenerator = {
             strokes.push(inner);
         }
 
-        // 角落装饰
-        if (Math.random() > 0.4) {
-            const corners = 4 + Math.floor(Math.random() * 4);
+        // 角落装饰（减少概率）
+        if (Math.random() > 0.7) {
+            const corners = 4;
             for (let i = 0; i < corners; i++) {
                 const angle = (2 * Math.PI * i) / corners + Math.random() * 0.1;
                 const r1 = borderR * 0.93;
@@ -472,18 +512,18 @@ const RandomGenerator = {
 
     /**
      * 曼陀罗 - 多层同心对称花卉图案
-     * 复杂的对称花瓣、多层叠加、精细装饰
+     * 优化：减少层数和复杂度
      */
     mandala(cx, cy, maxR, count, colors, config, palette) {
         const strokes = [];
-        const layers = 3 + Math.floor(Math.random() * 5);
+        const layers = 2 + Math.floor(Math.random() * 2); // 减少层数
         
         // 第一层：大花瓣
         for (let l = 0; l < layers; l++) {
-            const petalCount = 4 + Math.floor(Math.random() * 12) + l * 2;
-            const rStart = maxR * (0.05 + l * 0.12 + Math.random() * 0.05);
-            const rEnd = maxR * (0.25 + l * 0.2 + Math.random() * 0.05);
-            const petalWidth = (0.3 + Math.random() * 0.8) * (1 - l * 0.08);
+            const petalCount = 6 + Math.floor(Math.random() * 6) + l * 2; // 减少花瓣数
+            const rStart = maxR * (0.05 + l * 0.15 + Math.random() * 0.05);
+            const rEnd = maxR * (0.25 + l * 0.25 + Math.random() * 0.05);
+            const petalWidth = (0.3 + Math.random() * 0.6) * (1 - l * 0.1);
             
             for (let i = 0; i < petalCount; i++) {
                 const centerAngle = (2 * Math.PI * i) / petalCount + Math.random() * 0.02;
@@ -491,7 +531,7 @@ const RandomGenerator = {
                 // 花瓣左弧
                 const leftArc = [];
                 const rightArc = [];
-                const segs = 10 + Math.floor(Math.random() * 8);
+                const segs = 8 + Math.floor(Math.random() * 4); // 减少段数
                 
                 for (let j = 0; j <= segs; j++) {
                     const t = j / segs;
@@ -509,9 +549,8 @@ const RandomGenerator = {
                 strokes.push(leftArc);
                 strokes.push(rightArc);
                 
-                // 花瓣中脉
-                if (Math.random() > 0.4) {
-                    const midR = rStart + 0.5 * (rEnd - rStart);
+                // 花瓣中脉（减少概率）
+                if (Math.random() > 0.6) {
                     const midStroke = [
                         { x: cx + rStart * Math.cos(centerAngle), y: cy + rStart * Math.sin(centerAngle) },
                         { x: cx + (rEnd + maxR * 0.05) * Math.cos(centerAngle), y: cy + (rEnd + maxR * 0.05) * Math.sin(centerAngle) }
@@ -523,9 +562,9 @@ const RandomGenerator = {
         }
         
         // 第二层：中心装饰
-        const centerR = maxR * (0.05 + Math.random() * 0.1);
+        const centerR = maxR * (0.05 + Math.random() * 0.08);
         const centerCircle = [];
-        const segs2 = 30 + Math.floor(Math.random() * 20);
+        const segs2 = 20 + Math.floor(Math.random() * 10); // 减少段数
         for (let i = 0; i <= segs2; i++) {
             const angle = (2 * Math.PI * i) / segs2;
             const wobble = Math.sin(angle * 6 + Math.random() * 5) * 2;
@@ -538,12 +577,12 @@ const RandomGenerator = {
         strokes.push(centerCircle);
         
         // 第三层：放射细线（经线）
-        if (Math.random() > 0.3) {
-            const rayCount = 12 + Math.floor(Math.random() * 24);
+        if (Math.random() > 0.5) { // 减少概率
+            const rayCount = 8 + Math.floor(Math.random() * 12); // 减少射线数
             for (let i = 0; i < rayCount; i++) {
                 const angle = (2 * Math.PI * i) / rayCount;
                 const innerR = maxR * (0.08 + Math.random() * 0.15);
-                const outerR = maxR * (0.7 + Math.random() * 0.25);
+                const outerR = maxR * (0.6 + Math.random() * 0.2);
                 const ray = [
                     { x: cx + innerR * Math.cos(angle), y: cy + innerR * Math.sin(angle) },
                     { x: cx + outerR * Math.cos(angle), y: cy + outerR * Math.sin(angle) }
@@ -1455,174 +1494,218 @@ const RandomGenerator = {
         }
     },
 
+    /**
+     * 判断颜色是否为深色（用于决定是否启用拖尾模式）
+     * @param {string} color - hex 颜色
+     * @returns {boolean} true 表示深色
+     */
+    _isColorDark(color) {
+        if (!color || !color.startsWith('#')) return true; // 未知颜色默认为深色，避免启用拖尾
+        try {
+            const hex = color.slice(1);
+            let r, g, b;
+            if (hex.length === 3) {
+                r = parseInt(hex[0] + hex[0], 16);
+                g = parseInt(hex[1] + hex[1], 16);
+                b = parseInt(hex[2] + hex[2], 16);
+            } else {
+                r = parseInt(hex.slice(0, 2), 16);
+                g = parseInt(hex.slice(2, 4), 16);
+                b = parseInt(hex.slice(4, 6), 16);
+            }
+            // 计算亮度
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            return brightness < 128; // 低于 128 认为是深色（更保守的阈值）
+        } catch (e) {
+            return true; // 解析失败默认为深色
+        }
+    },
+
     // ============ 随机应用接口 ============
 
     /**
-     * 应用随机配置到状态管理器 - 大和谐大综合大随机版本！
+     * 应用随机配置到状态管理器 - 优化版本，减少卡顿
      */
     applyRandom() {
-        const { config, strokes } = this.generate();
+        const now = Date.now();
         
-        StateManager.setState(config);
-        this._syncUI(config);
-        StateManager.replaceStrokes(strokes);
-        
-        if (StateManager.state.musicEnabled) {
-            AudioEngine.setMusicTheme(config.musicTheme);
+        // 防抖：快速点击时忽略
+        if (now - this._lastApplyTime < this._applyDebounce) {
+            console.log('[RandomGenerator] 点击过于频繁，忽略');
+            return null;
         }
         
-        ParticleSystem.clear();
-        
-        // =========================
-        // 🎉 大和谐：随机调用所有功能！
-        // =========================
-        
-        // 🎨 随机画笔类型！
-        const brushTypes = ['solid', 'dashed', 'dotted', 'spray'];
-        const randomBrush = brushTypes[Math.floor(Math.random() * brushTypes.length)];
-        StateManager.setState({ brushType: randomBrush });
-        
-        // ✨ 随机发光！50% 概率启用！
-        const glowEnabled = Math.random() > 0.5;
-        if (glowEnabled) {
-            const glowColor = config.strokeColor;
-            const glowBlur = 5 + Math.floor(Math.random() * 30);
-            StateManager.setState({
-                glowEnabled: true,
-                glowColor: glowColor,
-                glowBlur: glowBlur
-            });
-        } else {
-            StateManager.setState({ glowEnabled: false });
+        // 防止并发调用
+        if (this._isApplying) {
+            console.log('[RandomGenerator] 正在生成中，忽略重复调用');
+            return null;
         }
         
-        // 🌈 随机彩虹模式！30% 概率！
-        const rainbowEnabled = Math.random() > 0.7;
-        StateManager.setState({ 
-            rainbowMode: rainbowEnabled,
-            rainbowHue: Math.random() * 360 
-        });
+        this._lastApplyTime = now;
+        this._isApplying = true;
         
-        // 🎨 随机渐变画笔！35% 概率！
-        const gradientEnabled = Math.random() > 0.65;
-        if (gradientEnabled) {
-            StateManager.setState({
-                gradientEnabled: true,
-                gradientFrom: config.strokeColor,
-                gradientTo: config.glowColor || config.strokeColor
-            });
-        } else {
-            StateManager.setState({ gradientEnabled: false });
-        }
+        try {
+            // 先生成配置和笔画
+            let { config, strokes } = this.generate();
         
-        // 🌊 随机拖尾模式！25% 概率！
-        const trailEnabled = Math.random() > 0.75;
-        StateManager.setState({ trailMode: trailEnabled });
-        
-        // 🎨 随机混合模式！
-        const blendModes = ['normal', 'multiply', 'screen', 'overlay', 'soft-light', 'hard-light', 'lighter'];
-        if (Math.random() > 0.6) {
-            const randomBlend = blendModes[Math.floor(Math.random() * blendModes.length)];
-            StateManager.setState({ blendMode: randomBlend });
-        }
-        
-        // 🎭 随机粒子特效！30% 概率（降低以优化性能）！
-        if (Math.random() > 0.7 && typeof ParticleSystem !== 'undefined' && typeof ParticleSystem.emit === 'function') {
-            ParticleSystem.clear();
-            // 使用正确的粒子类型
-            const particleTypes = ['firefly', 'spark', 'star', 'rainbow', 'butterfly', 'bubble', 'snow'];
-            const randomParticleType = particleTypes[Math.floor(Math.random() * particleTypes.length)];
-            
-            // 设置粒子类型到状态
-            StateManager.setState({ 
-                particleType: randomParticleType,
-                particleEnabled: true 
-            });
-            
-            // 使用 emit 方法生成粒子（减少数量优化性能）
-            const centerX = StateManager.state.canvasWidth / 2;
-            const centerY = StateManager.state.canvasHeight / 2;
-            const count = 20 + Math.floor(Math.random() * 30); // 减少粒子数量
-            
-            ParticleSystem.emit(centerX, centerY, count);
-        }
-        
-        // ✨ 随机动画效果！40% 概率（降低以优化性能）！
-        if (typeof AnimationController !== 'undefined') {
-            const enableAnimation = Math.random() > 0.6;
-            if (enableAnimation) {
-                // 随机选择预设！
-                const presets = ['breathing', 'floating', 'swirl', 'psychedelic', 'random'];
-                const chosen = presets[Math.floor(Math.random() * presets.length)];
-                
-                if (chosen === 'breathing') {
-                    AnimationController.presetBreathing();
-                } else if (chosen === 'floating') {
-                    AnimationController.presetFloating();
-                } else if (chosen === 'swirl') {
-                    AnimationController.presetSwirl();
-                } else if (chosen === 'psychedelic') {
-                    AnimationController.presetPsychedelic();
-                } else {
-                    AnimationController.randomize();
+            // 确保生成了有效的笔画（最多重试2次）
+            if (!strokes || strokes.length === 0) {
+                console.warn('[RandomGenerator] 未生成任何笔画，重新生成');
+                for (let retry = 0; retry < 2; retry++) {
+                    const result = this.generate();
+                    if (result.strokes && result.strokes.length > 0) {
+                        strokes = result.strokes;
+                        config = result.config;
+                        break;
+                    }
                 }
-                
-                AnimationController.setEnabled(true);
-                
-                // 更新UI按钮状态！
-                const btn = document.getElementById('animation-toggle');
-                if (btn) {
-                    btn.classList.add('active');
-                    btn.textContent = '⏸ 动画';
+                if (!strokes || strokes.length === 0) {
+                    console.error('[RandomGenerator] 无法生成有效笔画');
+                    return null;
+                }
+            }
+            
+            // 合并所有状态更新
+            const updates = { ...config };
+            
+            // 随机画笔类型
+            const brushTypes = ['solid', 'dashed', 'dotted', 'spray'];
+            updates.brushType = brushTypes[Math.floor(Math.random() * brushTypes.length)];
+            
+            // 随机发光
+            updates.glowEnabled = Math.random() > 0.5;
+            if (updates.glowEnabled) {
+                updates.glowColor = config.strokeColor;
+                updates.glowBlur = 5 + Math.floor(Math.random() * 20);
+            }
+            
+            // 随机彩虹模式（减少概率）
+            updates.rainbowMode = Math.random() > 0.8;
+            updates.rainbowHue = Math.random() * 360;
+            
+            // 随机渐变画笔（减少概率）
+            updates.gradientEnabled = Math.random() > 0.8;
+            if (updates.gradientEnabled) {
+                updates.gradientFrom = config.strokeColor;
+                updates.gradientTo = config.glowColor || config.strokeColor;
+            }
+            
+            // 随机拖尾模式（深色背景时不启用，避免黑屏问题）
+            const isDarkBg = this._isColorDark(config.bgColor);
+            updates.trailMode = !isDarkBg && Math.random() > 0.7;
+            
+            // 安全默认：确保混合模式不会导致内容不可见
+            // 深色背景上 'multiply' 会导致内容全黑，浅色背景上 'screen' 会导致内容全白
+            const safeBlendModes = ['normal', 'screen', 'overlay', 'soft-light', 'lighter'];
+            if (Math.random() > 0.85) {
+                if (isDarkBg) {
+                    // 深色背景避免 multiply 和 color-burn
+                    updates.blendMode = safeBlendModes[Math.floor(Math.random() * safeBlendModes.length)];
+                } else {
+                    // 浅色背景避免 screen
+                    const lightSafe = ['normal', 'multiply', 'overlay', 'soft-light'];
+                    updates.blendMode = lightSafe[Math.floor(Math.random() * lightSafe.length)];
                 }
             } else {
-                // 关闭动画！
-                AnimationController.setEnabled(false);
-                const btn = document.getElementById('animation-toggle');
-                if (btn) {
-                    btn.classList.remove('active');
-                    btn.textContent = '▶ 动画';
+                updates.blendMode = 'normal';
+            }
+            
+            // 随机粒子类型
+            const particleTypes = ['firefly', 'spark', 'star', 'rainbow', 'butterfly', 'bubble', 'snow'];
+            updates.particleType = particleTypes[Math.floor(Math.random() * particleTypes.length)];
+            updates.particleEnabled = Math.random() > 0.5;
+            
+            // 随机材质色板（减少概率）
+            if (typeof ColorPalette !== 'undefined' && Math.random() > 0.7) {
+                const paletteNames = ['aurora', 'lava', 'deepsea', 'rainbowCandy', 'starryNight', 'neon', 'candy', 'retro'];
+                updates.materialPalette = paletteNames[Math.floor(Math.random() * paletteNames.length)];
+                updates.colorScheme = 'triadic';
+            }
+            
+            // 批量更新状态（不触发通知，减少中间渲染）
+            StateManager.batchSetState(updates, false);
+            
+            // 替换笔画（这里会触发通知和重绘）
+            StateManager.replaceStrokes(strokes);
+            
+            // 清空粒子
+            if (typeof ParticleSystem !== 'undefined') {
+                ParticleSystem.clear();
+            }
+            
+            // 随机动画效果（减少概率）
+            if (typeof AnimationController !== 'undefined') {
+                const enableAnimation = Math.random() > 0.7;
+                if (enableAnimation) {
+                    const presets = ['breathing', 'floating', 'swirl', 'psychedelic', 'random'];
+                    const chosen = presets[Math.floor(Math.random() * presets.length)];
+                    
+                    if (chosen === 'breathing') {
+                        AnimationController.presetBreathing();
+                    } else if (chosen === 'floating') {
+                        AnimationController.presetFloating();
+                    } else if (chosen === 'swirl') {
+                        AnimationController.presetSwirl();
+                    } else if (chosen === 'psychedelic') {
+                        AnimationController.presetPsychedelic();
+                    } else {
+                        AnimationController.randomize();
+                    }
+                    
+                    AnimationController.setEnabled(true);
+                    
+                    const btn = document.getElementById('animation-toggle');
+                    if (btn) {
+                        btn.classList.add('active');
+                        btn.textContent = '⏸ 动画';
+                    }
+                } else {
+                    AnimationController.setEnabled(false);
+                    const btn = document.getElementById('animation-toggle');
+                    if (btn) {
+                        btn.classList.remove('active');
+                        btn.textContent = '▶ 动画';
+                    }
                 }
             }
-        }
-        
-        // 🎵 随机音乐主题！30% 概率！
-        if (Math.random() > 0.7 && typeof AudioEngine !== 'undefined') {
-            const musicThemes = ['aurora', 'cyberpunk', 'forest', 'dreamscape'];
-            const randomMusicTheme = musicThemes[Math.floor(Math.random() * musicThemes.length)];
-            AudioEngine.setMusicTheme(randomMusicTheme);
-            if (Math.random() > 0.5) {
-                AudioEngine.toggleMusic(true);
+            
+            // 生成粒子（更少数量）
+            if (updates.particleEnabled && typeof ParticleSystem !== 'undefined' && typeof ParticleSystem.emit === 'function') {
+                const centerX = StateManager.state.canvasWidth / 2;
+                const centerY = StateManager.state.canvasHeight / 2;
+                const count = 10 + Math.floor(Math.random() * 15);
+                ParticleSystem.emit(centerX, centerY, count);
             }
-        }
-        
-        // 🎨 随机材质色板！50% 概率！
-        if (typeof ColorPalette !== 'undefined' && Math.random() > 0.5) {
-            const paletteNames = ['aurora', 'lava', 'deepsea', 'rainbowCandy', 'starryNight', 'neon', 'candy', 'retro'];
-            const randomPaletteName = paletteNames[Math.floor(Math.random() * paletteNames.length)];
-            StateManager.setState({ 
-                materialPalette: randomPaletteName,
-                colorScheme: 'triadic'
-            });
-        }
-        
-        // 📐 随机噪点背景！40% 概率！
-        if (typeof NoiseGenerator !== 'undefined' && Math.random() > 0.6) {
-            StateManager.setState({
-                noiseSeed: Math.floor(Math.random() * 100000)
-            });
-        }
-        
-        const renderer = CanvasRenderer;
-        if (renderer) {
-            renderer.needRedrawOffscreen = true;
-            renderer.render();
-        }
-        
-        const paletteName = this.palettes.find(p => p.bg === config.bgColor && p.stroke === config.strokeColor)?.name;
-        this._showRandomToast(config, paletteName);
+            
+            // 标记离屏画布重绘
+            if (CanvasRenderer && CanvasRenderer.needRedrawOffscreen !== undefined) {
+                CanvasRenderer.needRedrawOffscreen = true;
+            }
+            
+            // 清空主画布并立即绘制背景，防止闪烁/白屏/黑屏
+            if (CanvasRenderer && CanvasRenderer.ctx) {
+                const bgColor = config.bgColor || '#0a0a1a';
+                try {
+                    const r = parseInt(bgColor.slice(1, 3), 16);
+                    const g = parseInt(bgColor.slice(3, 5), 16);
+                    const b = parseInt(bgColor.slice(5, 7), 16);
+                    CanvasRenderer.ctx.fillStyle = `rgb(${r},${g},${b})`;
+                } catch (e) {
+                    CanvasRenderer.ctx.fillStyle = bgColor;
+                }
+                CanvasRenderer.ctx.fillRect(0, 0, StateManager.state.canvasWidth, StateManager.state.canvasHeight);
+            }
+            
+            const paletteName = this.palettes.find(p => p.bg === config.bgColor && p.stroke === config.strokeColor)?.name;
+            this._showRandomToast(config, paletteName);
 
-        return { config, strokes };
+            // 同步UI控件，使界面反映新的随机配置
+            this._syncUI(updates);
+
+            return { config, strokes };
+        } finally {
+            this._isApplying = false;
+        }
     },
 
     /**
