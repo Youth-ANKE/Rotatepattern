@@ -8,6 +8,7 @@ const KeyboardHandler = {
      */
     init() {
         document.addEventListener('keydown', (e) => this._handleKeydown(e));
+        this.initShortcuts();
     },
 
     /**
@@ -33,11 +34,23 @@ const KeyboardHandler = {
                 }
                 break;
 
+            // === Ctrl+S 保存 ===
+            case 's':
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    this._saveImage();
+                } else if (typeof FractalGenerator !== 'undefined') {
+                    e.preventDefault();
+                    this._showFractalPanel();
+                }
+                break;
+
             // === 功能快捷键（无Ctrl组合） ===
             case 'c':
                 if (!e.ctrlKey) {
                     e.preventDefault();
                     this._clearCanvas();
+                    this._showToast('🗑 画布已清空');
                 }
                 break;
             case 't':
@@ -50,12 +63,6 @@ const KeyboardHandler = {
                 if (!e.ctrlKey) {
                     e.preventDefault();
                     this._toggleMusic();
-                }
-                break;
-            case 's':
-                if (!e.ctrlKey) {
-                    e.preventDefault();
-                    this._saveImage();
                 }
                 break;
             case 'r':
@@ -126,7 +133,8 @@ const KeyboardHandler = {
             case 'e':
                 if (!e.ctrlKey && typeof CreativeExtensions !== 'undefined') {
                     e.preventDefault();
-                    CreativeExtensions.evolvePattern();
+                    CreativeExtensions.evolve();
+                    this._showToast('🧬 图案进化中...');
                 }
                 break;
 
@@ -134,7 +142,8 @@ const KeyboardHandler = {
             case 'h':
                 if (!e.ctrlKey && typeof CreativeExtensions !== 'undefined') {
                     e.preventDefault();
-                    CreativeExtensions.hybridizePattern();
+                    CreativeExtensions.hybridize();
+                    this._showToast('🔀 图案杂交中...');
                 }
                 break;
 
@@ -142,7 +151,14 @@ const KeyboardHandler = {
             case 'v':
                 if (!e.ctrlKey && typeof CreativeExtensions !== 'undefined') {
                     e.preventDefault();
-                    CreativeExtensions.toggleVisualization();
+                    if (CreativeExtensions._visualizationEnabled) {
+                        CreativeExtensions._visualizationEnabled = false;
+                        this._showToast('🎵 音频可视化：关');
+                    } else {
+                        CreativeExtensions._visualizationEnabled = true;
+                        CreativeExtensions.updateAudioVisualization();
+                        this._showToast('🎵 音频可视化：开');
+                    }
                 }
                 break;
 
@@ -150,7 +166,8 @@ const KeyboardHandler = {
             case 'b':
                 if (!e.ctrlKey && typeof CreativeExtensions !== 'undefined') {
                     e.preventDefault();
-                    CreativeExtensions.applyRandomStory();
+                    CreativeExtensions.startRandomStory();
+                    this._showToast('📖 主题故事生成中...');
                 }
                 break;
 
@@ -178,11 +195,11 @@ const KeyboardHandler = {
                 }
                 break;
 
-            // === S 分形生成 ===
-            case 's':
-                if (!e.ctrlKey && typeof FractalGenerator !== 'undefined') {
+            // === D 隐藏/显示侧边栏 ===
+            case 'd':
+                if (!e.ctrlKey) {
                     e.preventDefault();
-                    this._showFractalPanel();
+                    this._toggleSidebar();
                 }
                 break;
 
@@ -205,13 +222,13 @@ const KeyboardHandler = {
     },
 
     _undo() {
-        if (StateManager.undo()) {
+        if (typeof StateManager?.undo === 'function' && StateManager.undo()) {
             this._showToast('↩ 撤销');
         }
     },
 
     _redo() {
-        if (StateManager.redo()) {
+        if (typeof StateManager?.redo === 'function' && StateManager.redo()) {
             this._showToast('↪ 重做');
         }
     },
@@ -222,15 +239,33 @@ const KeyboardHandler = {
     },
 
     _toggleTrail() {
-        StateManager.setState({ trailMode: !StateManager.state.trailMode });
+        if (typeof StateManager?.setState === 'function') {
+            StateManager.setState({ trailMode: !StateManager.state.trailMode });
+        }
         const btn = document.getElementById('trail-toggle');
         if (btn) btn.classList.toggle('active');
-        this._showToast(StateManager.state.trailMode ? '🌊 拖尾：开' : '🌊 拖尾：关');
+        this._showToast(StateManager?.state?.trailMode ? '🌊 拖尾：开' : '🌊 拖尾：关');
     },
 
     _toggleMusic() {
         const btn = document.getElementById('music-toggle');
-        if (btn) btn.click();
+        if (btn) {
+            btn.click();
+            // 点击后按钮文字变为 '⏹ 停止音乐' 表示开启，'🎵 背景音乐' 表示关闭
+            setTimeout(() => {
+                const isPlaying = btn.classList.contains('active');
+                this._showToast(isPlaying ? '🎵 音乐开' : '🎵 音乐关');
+            }, 10);
+        }
+    },
+
+    _toggleSidebar() {
+        const sidebar = document.getElementById('settings-panel');
+        if (sidebar) {
+            sidebar.classList.toggle('collapsed');
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            this._showToast(isCollapsed ? '📋 侧边栏已隐藏' : '📋 侧边栏已显示');
+        }
     },
 
     _saveImage() {
@@ -239,14 +274,19 @@ const KeyboardHandler = {
     },
 
     _randomConfig() {
-        RandomGenerator.applyRandom();
+        if (typeof RandomGenerator?.applyRandom === 'function') {
+            RandomGenerator.applyRandom();
+        }
         this._showToast('🎲 随机生成配置！');
     },
 
     _adjustSymmetry(delta) {
+        if (!StateManager?.state) return;
         let count = StateManager.state.symmetryCount + delta;
         count = Math.max(2, Math.min(24, count));
-        StateManager.setState({ symmetryCount: count });
+        if (typeof StateManager?.setState === 'function') {
+            StateManager.setState({ symmetryCount: count });
+        }
         const label = document.getElementById('symmetry-count-label');
         if (label) label.textContent = count;
         const slider = document.getElementById('symmetry-count');
@@ -254,9 +294,12 @@ const KeyboardHandler = {
     },
 
     _adjustSpeed(delta) {
+        if (!StateManager?.state) return;
         let speed = StateManager.state.rotationSpeed + delta;
         speed = Math.max(0, Math.min(100, speed));
-        StateManager.setState({ rotationSpeed: speed });
+        if (typeof StateManager?.setState === 'function') {
+            StateManager.setState({ rotationSpeed: speed });
+        }
         const slider = document.getElementById('rotation-speed');
         if (slider) slider.value = speed;
         const label = document.getElementById('rotation-speed-label');
@@ -265,21 +308,29 @@ const KeyboardHandler = {
 
     _toggleAutoRotate() {
         const btn = document.getElementById('auto-rotate-toggle');
-        if (btn) btn.click();
+        if (btn) {
+            btn.click();
+            const isActive = btn.classList.contains('active');
+            this._showToast(isActive ? '▶ 旋转：开' : '⏸ 旋转：暂停');
+        }
     },
 
     _setBrush(type) {
-        StateManager.setState({ brushType: type });
+        if (typeof StateManager?.setState === 'function') {
+            StateManager.setState({ brushType: type });
+        }
         const select = document.getElementById('brush-type');
         if (select) select.value = type;
         this._showToast(`✏️ 画笔：${this._brushName(type)}`);
     },
 
     _toggleGlow() {
-        StateManager.setState({ glowEnabled: !StateManager.state.glowEnabled });
+        if (typeof StateManager?.setState === 'function') {
+            StateManager.setState({ glowEnabled: !StateManager.state.glowEnabled });
+        }
         const btn = document.getElementById('glow-toggle');
         if (btn) btn.classList.toggle('active');
-        this._showToast(StateManager.state.glowEnabled ? '✨ 发光：开' : '✨ 发光：关');
+        this._showToast(StateManager?.state?.glowEnabled ? '✨ 发光：开' : '✨ 发光：关');
     },
 
     _toggleAnimation() {
@@ -506,5 +557,280 @@ const KeyboardHandler = {
         overlay.close = close;
 
         return overlay;
+    },
+
+    // === 快捷键提示功能 ===
+
+    /**
+     * 默认快捷键配置
+     */
+    defaultShortcuts: {
+        // 绘图控制
+        symmetryUp: 'ArrowUp',
+        symmetryDown: 'ArrowDown',
+        speedLeft: 'ArrowLeft',
+        speedRight: 'ArrowRight',
+        pause: ' ',
+        clear: 'c',
+        brush1: '1',
+        brush2: '2',
+        brush3: '3',
+        brush4: '4',
+        // 效果切换
+        trail: 't',
+        glow: 'g',
+        music: 'm',
+        animation: 'a',
+        random: 'r',
+        // 功能面板
+        evolve: 'e',
+        hybridize: 'h',
+        genetic: 'l',
+        physics: 'p',
+        fractal: 's',
+        // 其他功能
+        fullscreen: 'f',
+        visualization: 'v',
+        story: 'b',
+        export: 'x',
+        image: 'i',
+        ai: 'k',
+        sidebar: 'd',
+        // 系统操作
+        undo: { key: 'z', ctrl: true },
+        redo: { key: 'y', ctrl: true },
+        save: { key: 's', ctrl: true }
+    },
+
+    /**
+     * 用户自定义快捷键
+     */
+    customShortcuts: {},
+
+    /**
+     * 初始化快捷键功能
+     */
+    initShortcuts() {
+        // 加载自定义快捷键
+        const saved = localStorage.getItem('kaleidoscope_shortcuts');
+        if (saved) {
+            try {
+                this.customShortcuts = JSON.parse(saved);
+            } catch (e) {
+                this.customShortcuts = {};
+            }
+        }
+
+        // 绑定快捷键查看按钮
+        const shortcutsBtn = document.getElementById('shortcuts-toggle');
+        if (shortcutsBtn) {
+            shortcutsBtn.addEventListener('click', () => this.showShortcutsPanel());
+        }
+
+        // 绑定自定义快捷键按钮
+        const customBtn = document.getElementById('custom-shortcuts-btn');
+        if (customBtn) {
+            customBtn.addEventListener('click', () => this.showCustomShortcutsModal());
+        }
+
+        // 绑定 ? 键打开快捷键面板
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    this.showShortcutsPanel();
+                }
+            }
+        });
+    },
+
+    /**
+     * 获取实际快捷键（优先使用自定义）
+     */
+    getShortcut(key) {
+        return this.customShortcuts[key] || this.defaultShortcuts[key];
+    },
+
+    /**
+     * 显示快捷键面板
+     */
+    showShortcutsPanel() {
+        const settingsPanel = document.getElementById('advanced-settings');
+        const settingsOverlay = document.getElementById('settings-overlay');
+        if (settingsPanel) {
+            settingsPanel.classList.add('show');
+            settingsOverlay.style.display = 'block';
+        }
+        // 展开快捷键区域
+        setTimeout(() => {
+            const shortcutsSection = document.getElementById('sec-shortcuts');
+            if (shortcutsSection) {
+                shortcutsSection.classList.remove('collapsed');
+                shortcutsSection.style.maxHeight = '';
+            }
+        }, 100);
+        this._showToast('⌨️ 快捷键提示');
+    },
+
+    /**
+     * 显示自定义快捷键弹窗
+     */
+    showCustomShortcutsModal() {
+        // 移除已存在的弹窗
+        const existing = document.querySelector('.shortcut-modal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.className = 'shortcut-modal';
+        modal.innerHTML = `
+            <div class="shortcut-modal-content">
+                <div class="shortcut-modal-header">
+                    <h3>⚙️ 自定义快捷键</h3>
+                    <button class="shortcut-modal-close">✕</button>
+                </div>
+                <div class="shortcut-modal-body">
+                    <div class="cs-group">
+                        <div class="cs-group-title">绘图控制</div>
+                        ${this._createShortcutItem('symmetryUp', '↑ 对称增加')}
+                        ${this._createShortcutItem('symmetryDown', '↓ 对称减少')}
+                        ${this._createShortcutItem('speedLeft', '← 速度减少')}
+                        ${this._createShortcutItem('speedRight', '→ 速度增加')}
+                        ${this._createShortcutItem('pause', 'Space 暂停')}
+                        ${this._createShortcutItem('clear', 'C 清空')}
+                        ${this._createShortcutItem('brush1', '1 实线画笔')}
+                        ${this._createShortcutItem('brush2', '2 虚线画笔')}
+                        ${this._createShortcutItem('brush3', '3 点线画笔')}
+                        ${this._createShortcutItem('brush4', '4 喷枪画笔')}
+                    </div>
+                    <div class="cs-group">
+                        <div class="cs-group-title">效果切换</div>
+                        ${this._createShortcutItem('trail', 'T 拖尾')}
+                        ${this._createShortcutItem('glow', 'G 发光')}
+                        ${this._createShortcutItem('music', 'M 音乐')}
+                        ${this._createShortcutItem('animation', 'A 动画')}
+                        ${this._createShortcutItem('random', 'R 随机')}
+                    </div>
+                    <div class="cs-group">
+                        <div class="cs-group-title">功能面板</div>
+                        ${this._createShortcutItem('evolve', 'E 进化')}
+                        ${this._createShortcutItem('hybridize', 'H 杂交')}
+                        ${this._createShortcutItem('genetic', 'L 遗传')}
+                        ${this._createShortcutItem('physics', 'P 物理')}
+                        ${this._createShortcutItem('fractal', 'S 分形')}
+                    </div>
+                    <div class="cs-group">
+                        <div class="cs-group-title">其他功能</div>
+                        ${this._createShortcutItem('fullscreen', 'F 全屏')}
+                        ${this._createShortcutItem('visualization', 'V 可视化')}
+                        ${this._createShortcutItem('story', 'B 故事')}
+                        ${this._createShortcutItem('export', 'X 导出')}
+                        ${this._createShortcutItem('image', 'I 图片')}
+                        ${this._createShortcutItem('ai', 'K AI')}
+                        ${this._createShortcutItem('sidebar', 'D 侧边栏')}
+                    </div>
+                    <div style="text-align:center;margin-top:16px;">
+                        <button class="preset-btn cs-reset-all" style="background:rgba(255,69,69,0.1);border-color:rgba(255,69,69,0.3);color:#ff6b6b;">🔄 恢复默认</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+
+        // 绑定关闭事件
+        modal.querySelector('.shortcut-modal-close').onclick = () => {
+            modal.classList.remove('show');
+            setTimeout(() => modal.remove(), 250);
+        };
+        modal.onclick = (e) => { if (e.target === modal) modal.classList.remove('show'); };
+
+        // 绑定快捷键输入
+        modal.querySelectorAll('.cs-item-key input').forEach(input => {
+            const key = input.dataset.key;
+            input.value = this._formatShortcutKey(this.getShortcut(key));
+
+            input.addEventListener('focus', () => {
+                input.classList.add('recording');
+                input.value = '按下快捷键...';
+            });
+
+            input.addEventListener('blur', () => {
+                input.classList.remove('recording');
+                input.value = this._formatShortcutKey(this.getShortcut(key));
+            });
+
+            input.addEventListener('keydown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                let shortcut = null;
+                if (e.key === 'Escape') {
+                    input.blur();
+                    return;
+                }
+
+                if (e.key === 'Backspace' || e.key === 'Delete') {
+                    shortcut = null;
+                } else if (e.ctrlKey || e.metaKey) {
+                    shortcut = { key: e.key.toLowerCase(), ctrl: true };
+                } else if (e.key.length === 1 || e.key.startsWith('Arrow')) {
+                    shortcut = e.key;
+                }
+
+                if (shortcut !== undefined) {
+                    this.customShortcuts[key] = shortcut;
+                    localStorage.setItem('kaleidoscope_shortcuts', JSON.stringify(this.customShortcuts));
+                    input.value = this._formatShortcutKey(shortcut);
+                    input.classList.remove('recording');
+                    this._showToast(`已设置快捷键: ${this._formatShortcutKey(shortcut)}`);
+                }
+            });
+        });
+
+        // 恢复默认按钮
+        modal.querySelector('.cs-reset-all').onclick = () => {
+            if (confirm('确定要恢复所有快捷键为默认设置吗？')) {
+                this.customShortcuts = {};
+                localStorage.removeItem('kaleidoscope_shortcuts');
+                modal.querySelectorAll('.cs-item-key input').forEach(input => {
+                    input.value = this._formatShortcutKey(this.defaultShortcuts[input.dataset.key]);
+                });
+                this._showToast('已恢复默认快捷键');
+            }
+        };
+    },
+
+    /**
+     * 创建快捷键配置项
+     */
+    _createShortcutItem(key, label) {
+        return `
+            <div class="cs-item">
+                <span class="cs-item-label">${label}</span>
+                <div class="cs-item-key">
+                    <input type="text" data-key="${key}" readonly>
+                </div>
+            </div>
+        `;
+    },
+
+    /**
+     * 格式化快捷键显示
+     */
+    _formatShortcutKey(shortcut) {
+        if (!shortcut) return '未设置';
+        if (typeof shortcut === 'object') {
+            const ctrl = shortcut.ctrl ? 'Ctrl+' : '';
+            return ctrl + shortcut.key.toUpperCase();
+        }
+        const specialKeys = {
+            ' ': 'Space',
+            'ArrowUp': '↑',
+            'ArrowDown': '↓',
+            'ArrowLeft': '←',
+            'ArrowRight': '→'
+        };
+        return specialKeys[shortcut] || shortcut.toUpperCase();
     }
 };

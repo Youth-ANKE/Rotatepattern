@@ -3100,5 +3100,30 @@ const RandomGenerator = {
     _syncToggle(id, active) {
         const el = document.getElementById(id);
         if (el) el.classList.toggle('active', active);
+    },
+
+    /**
+     * 设置图案生成器 (供外部模块调用)
+     * @param {string} generatorName - 生成器名称
+     */
+    setPatternGenerator(generatorName) {
+        if (!generatorName) return;
+        
+        // 检查是否为有效的生成器名称
+        const validGenerators = this.patternGenerators || [];
+        if (!validGenerators.includes(generatorName)) {
+            console.log(`[RandomGenerator] 未知的生成器: ${generatorName}`);
+            return;
+        }
+        
+        // 更新状态
+        if (window.StateManager) {
+            window.StateManager.setState({ 
+                activeGeneratorName: generatorName,
+                patternGenerator: generatorName 
+            });
+        }
+        
+        console.log(`[RandomGenerator] 已切换到: ${generatorName}`);
     }
 };

@@ -9,9 +9,9 @@ class GeneticAlgorithm {
         this.mutationRate = 0.15;
         this.crossoverRate = 0.7;
 
-        // 基因类型
+        // 基因类型 (使用有效名称)
         this.geneTypes = {
-            structure: ['mandala', 'spiral', 'geometric', 'flower', 'star', 'organic', 'fractal', 'wave'],
+            structure: ['mandala', 'spiralWave', 'islamicGeo', 'flowerPetals', 'starburst', 'abstractScribble', 'fractalTree', 'waveInterference'],
             color: ['vibrant', 'pastel', 'neon', 'earth', 'ocean', 'sunset', 'aurora', 'cosmic'],
             animation: ['none', 'pulse', 'wave', 'spin', 'breathe', 'drift', 'orbit'],
             symmetry: [4, 6, 8, 12, 16, 24],

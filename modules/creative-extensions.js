@@ -49,7 +49,7 @@ const CreativeExtensions = {
         // 应用变异后的配置
         this._applyMutatedConfig();
         
-        KeyboardHandler._showToast('🧬 进化变异！');
+        if (KeyboardHandler?._showToast) KeyboardHandler._showToast('🧬 进化变异！');
     },
     
     /**
@@ -249,7 +249,7 @@ const CreativeExtensions = {
     hybridize() {
         if (this._evolutionPopulation.length < 1) {
             console.log('[CreativeExtensions] 种群不足，先进行几次变异后再尝试杂交');
-            KeyboardHandler._showToast('📈 变异几次后再杂交！');
+            if (KeyboardHandler?._showToast) KeyboardHandler._showToast('📈 变异几次后再杂交！');
             return;
         }
         
@@ -301,7 +301,7 @@ const CreativeExtensions = {
         // 生成新的图案层
         this._generateHybridLayers(parentA, parentB);
         
-        KeyboardHandler._showToast('🧬 杂交完成！新图案诞生');
+        if (KeyboardHandler?._showToast) KeyboardHandler._showToast('🧬 杂交完成！新图案诞生');
     },
     
     /**
@@ -452,10 +452,10 @@ const CreativeExtensions = {
         if (enabled) {
             this.initAudioVisualizer();
             console.log('[CreativeExtensions] 音频可视化已启用');
-            KeyboardHandler._showToast('🎵 音频可视化：开');
+            if (KeyboardHandler?._showToast) KeyboardHandler._showToast('🎵 音频可视化：开');
         } else {
             console.log('[CreativeExtensions] 音频可视化已禁用');
-            KeyboardHandler._showToast('🎵 音频可视化：关');
+            if (KeyboardHandler?._showToast) KeyboardHandler._showToast('🎵 音频可视化：关');
         }
     },
     
@@ -811,7 +811,7 @@ const CreativeExtensions = {
         }, 100);
         
         // 显示主题介绍
-        KeyboardHandler._showToast(`📖 ${theme.name}: ${theme.description}`);
+        if (KeyboardHandler?._showToast) KeyboardHandler._showToast(`📖 ${theme.name}: ${theme.description}`);
     },
     
     /**

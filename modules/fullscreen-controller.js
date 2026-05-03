@@ -553,10 +553,24 @@ const FullscreenController = {
             likeBtn.addEventListener('click', () => this.handleLike());
         }
 
-        // 收藏按钮 - 左键收藏
+        // 收藏按钮 - 左键收藏（双击取消）
         const favBtn = document.getElementById('fs-favorite-btn');
         if (favBtn) {
-            favBtn.addEventListener('click', () => this.handleFavorite());
+            let clickTimer = null;
+            favBtn.addEventListener('click', () => {
+                if (clickTimer) {
+                    // 双击
+                    clearTimeout(clickTimer);
+                    clickTimer = null;
+                    this.handleFavorite(true);
+                } else {
+                    // 单击，延迟等待第二次点击
+                    clickTimer = setTimeout(() => {
+                        clickTimer = null;
+                        this.handleFavorite(false);
+                    }, 300);
+                }
+            });
         }
 
         // 分享按钮
@@ -595,8 +609,14 @@ const FullscreenController = {
 
         // 侧边栏收藏切换
         const favBtn = document.getElementById('sidebar-fav-btn');
-        if (favBtn) {
-            favBtn.addEventListener('click', () => this.openFavoritesPanel());
+        const favList = document.getElementById('favorites-history-list');
+        if (favBtn && favList) {
+            favBtn.addEventListener('click', () => {
+                const isHidden = favList.style.display === 'none';
+                favList.style.display = isHidden ? 'block' : 'none';
+                favBtn.textContent = isHidden ? '收起' : '查看收藏';
+                if (isHidden) this._renderFavoritesHistoryInSidebar();
+            });
         }
     },
 
@@ -658,7 +678,7 @@ const FullscreenController = {
             likeBtn.innerHTML = this.likeCount > 0 ? `🤍 ${this.likeCount}` : '❤️ 点赞';
             this._showToast(`取消点赞，当前 ${this.likeCount} 个赞`);
 
-            // 添加到历史记录
+            // 添加到历史记录（带截图）
             this._addLikeRecord('取消点赞');
         } else {
             // 点赞
@@ -669,7 +689,7 @@ const FullscreenController = {
             this._createLikeParticle();
             this._showToast(`✨ 感谢点赞！ +1 (共 ${this.likeCount} 个赞)`);
 
-            // 添加到历史记录
+            // 添加到历史记录（带截图）
             this._addLikeRecord('点赞 +1');
         }
 
@@ -681,9 +701,15 @@ const FullscreenController = {
      * 添加点赞记录
      */
     _addLikeRecord(action) {
+        const canvas = document.getElementById('kaleidoscope-canvas');
+        const dataUrl = canvas ? canvas.toDataURL('image/png') : null;
+        const config = this._getCurrentConfig();
+
         const record = {
             id: Date.now(),
             action: action,
+            dataUrl: dataUrl,
+            config: config,
             timestamp: new Date().toLocaleString('zh-CN')
         };
         this.likeHistory.unshift(record);
@@ -705,13 +731,75 @@ const FullscreenController = {
             return;
         }
 
-        list.innerHTML = this.likeHistory.slice(0, 10).map(record => `
-            <div class="lh-item">
-                <span class="lh-icon">${record.action.includes('取消') ? '💔' : '❤️'}</span>
-                <span class="lh-text">${record.action}</span>
-                <span class="lh-time">${record.timestamp.split(' ')[1] || ''}</span>
-            </div>
-        `).join('');
+        list.innerHTML = `
+            <button class="lh-clear-all lh-action-btn" data-action="clearLikes">🗑 清空全部</button>
+            ${this.likeHistory.slice(0, 20).map(record => `
+                <div class="lh-item" data-id="${record.id}">
+                    ${record.dataUrl ? `<img class="lh-thumb lh-action-btn" data-action="applyLike" data-id="${record.id}" src="${record.dataUrl}" alt="缩略图" title="点击应用此图案">` : ''}
+                    <div class="lh-info">
+                        <span class="lh-icon">${record.action.includes('取消') ? '💔' : '❤️'}</span>
+                        <span class="lh-text">${record.action}</span>
+                        <span class="lh-time">${record.timestamp.split(' ')[1] || ''}</span>
+                    </div>
+                    <button class="lh-delete lh-action-btn" data-action="deleteLike" data-id="${record.id}" title="删除">×</button>
+                </div>
+            `).join('')}
+        `;
+
+        // 绑定事件（事件委托）
+        list.querySelectorAll('.lh-action-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this._handleLikeListAction(e, btn));
+        });
+    },
+
+    /**
+     * 处理点赞列表操作
+     */
+    _handleLikeListAction(e, btn) {
+        e.stopPropagation();
+        const action = btn.dataset.action;
+        const id = parseInt(btn.dataset.id);
+        switch (action) {
+            case 'clearLikes': this.clearAllLikes(); break;
+            case 'deleteLike': this.deleteLikeRecord(id); break;
+            case 'applyLike': this.applyLikeRecord(id); break;
+        }
+    },
+
+    /**
+     * 删除单条点赞记录
+     */
+    deleteLikeRecord(id) {
+        this.likeHistory = this.likeHistory.filter(r => r.id !== id);
+        localStorage.setItem('kaleidoscope_like_history', JSON.stringify(this.likeHistory));
+        this._renderLikesHistoryInSidebar();
+        this._updateUI();
+    },
+
+    /**
+     * 清空所有点赞记录
+     */
+    clearAllLikes() {
+        if (confirm('确定要清空所有点赞记录吗？')) {
+            this.likeHistory = [];
+            localStorage.setItem('kaleidoscope_like_history', JSON.stringify(this.likeHistory));
+            this._renderLikesHistoryInSidebar();
+            this._updateUI();
+            this._showToast('已清空所有点赞记录');
+        }
+    },
+
+    /**
+     * 应用点赞记录中的图案
+     */
+    applyLikeRecord(id) {
+        const record = this.likeHistory.find(r => r.id === id);
+        if (record && record.config) {
+            if (typeof StateManager !== 'undefined' && StateManager.setState) {
+                StateManager.setState(record.config);
+            }
+            this._showToast('已应用图案配置');
+        }
     },
 
     /**
@@ -733,31 +821,90 @@ const FullscreenController = {
     },
 
     /**
-     * 收藏功能
+     * 渲染收藏历史到侧边栏
      */
-    handleFavorite() {
+    _renderFavoritesHistoryInSidebar() {
+        const list = document.getElementById('favorites-history-list');
+        if (!list) return;
+
+        const favorites = this._getFavorites();
+        if (favorites.length === 0) {
+            list.innerHTML = '<div class="lh-empty">暂无收藏记录</div>';
+            return;
+        }
+
+        list.innerHTML = `
+            <button class="lh-clear-all lh-action-btn" data-action="clearFavs">🗑 清空全部</button>
+            ${favorites.slice(0, 12).map(fav => `
+                <div class="lh-item" data-id="${fav.id}">
+                    <img class="lh-thumb lh-action-btn" data-action="loadFav" data-id="${fav.id}" src="${fav.thumbnail || fav.dataUrl}" alt="缩略图" title="点击应用">
+                    <div class="lh-info">
+                        <span class="lh-icon">⭐</span>
+                        <span class="lh-text">${fav.name || '收藏'}</span>
+                    </div>
+                    <button class="lh-delete lh-action-btn" data-action="deleteFav" data-id="${fav.id}" title="删除">×</button>
+                </div>
+            `).join('')}
+        `;
+
+        // 绑定事件（事件委托）
+        list.querySelectorAll('.lh-action-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this._handleFavListAction(e, btn));
+        });
+    },
+
+    /**
+     * 处理收藏列表操作
+     */
+    _handleFavListAction(e, btn) {
+        e.stopPropagation();
+        const action = btn.dataset.action;
+        const id = parseInt(btn.dataset.id);
+        switch (action) {
+            case 'clearFavs': this.clearAllFavorites(); break;
+            case 'deleteFav': this.deleteFavorite(id); break;
+            case 'loadFav': this.loadFavorite(id); break;
+        }
+    },
+
+    /**
+     * 收藏功能
+     * @param {boolean} isDoubleClick - true: 取消收藏, false: 添加收藏
+     */
+    handleFavorite(isDoubleClick) {
         const favBtn = document.getElementById('fs-favorite-btn');
         const favorites = this._getFavorites();
-
-        // 保存当前截图
-        const canvas = document.getElementById('kaleidoscope-canvas');
-        const dataUrl = canvas.toDataURL('image/png');
         const config = this._getCurrentConfig();
 
-        const id = Date.now();
-        favorites.push({
-            id,
-            ...config,
-            dataUrl,
-            thumbnail: dataUrl,
-            timestamp: id,
-            name: `收藏 ${favorites.length + 1}`
-        });
-        this._saveFavorites(favorites);
+        if (isDoubleClick) {
+            // 双击：取消收藏（移除最新的一个）
+            if (favorites.length > 0) {
+                favorites.pop();
+                this._saveFavorites(favorites);
+                favBtn.classList.remove('favorited');
+                favBtn.innerHTML = favorites.length > 0 ? `⭐ ${favorites.length}` : '⭐ 收藏';
+                this._showToast('⭐ 已取消收藏');
+            }
+        } else {
+            // 单击：添加收藏
+            const canvas = document.getElementById('kaleidoscope-canvas');
+            const dataUrl = canvas.toDataURL('image/png');
 
-        favBtn.classList.add('favorited');
-        favBtn.innerHTML = `⭐ ${favorites.length}`;
-        this._showToast(`⭐ 已收藏！共 ${favorites.length} 个收藏`);
+            const id = Date.now();
+            favorites.push({
+                id,
+                ...config,
+                dataUrl,
+                thumbnail: dataUrl,
+                timestamp: id,
+                name: `收藏 ${favorites.length + 1}`
+            });
+            this._saveFavorites(favorites);
+
+            favBtn.classList.add('favorited');
+            favBtn.innerHTML = `⭐ ${favorites.length}`;
+            this._showToast(`⭐ 已收藏！共 ${favorites.length} 个收藏`);
+        }
         this._updateUI();
         this._renderFavorites();
     },
@@ -934,6 +1081,7 @@ const FullscreenController = {
         this._showToast('🗑 已删除收藏');
         this._updateUI();
         this._renderFavorites();
+        this._renderFavoritesHistoryInSidebar();
     },
 
     /**
@@ -945,6 +1093,7 @@ const FullscreenController = {
         this._showToast('🗑 已清空所有收藏');
         this._updateUI();
         this._renderFavorites();
+        this._renderFavoritesHistoryInSidebar();
     },
 
     /**

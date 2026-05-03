@@ -373,10 +373,30 @@ class AITemplateGenerator {
             cosmic: 7
         };
 
+        // 图案名称映射：模板名称 -> 有效生成器名称
+        const patternMap = {
+            'organic': 'abstractScribble',
+            'flower': 'flowerPetals',
+            'tree': 'fractalTree',
+            'spiral': 'spiralWave',
+            'wave': 'waveInterference',
+            'geometric': 'islamicGeo',
+            'star': 'starburst',
+            'mandala': 'mandala',
+            'fractal': 'fractalTree'
+        };
+
+        // 粒子类型映射：模板名称 -> 有效粒子名称
+        const particleMap = {
+            'leaf': 'spark',
+            'heart': 'spark'
+        };
+
         const configMap = {
             pattern: (v) => {
+                const validPattern = patternMap[v] || v;
                 if (window.RandomGenerator) {
-                    window.RandomGenerator.setPatternGenerator(v);
+                    window.RandomGenerator.setPatternGenerator(validPattern);
                 }
             },
             color: (v) => {
@@ -385,8 +405,9 @@ class AITemplateGenerator {
                 }
             },
             particle: (v) => {
-                if (window.ParticleSystem) {
-                    window.ParticleSystem.setParticleType(v);
+                const validParticle = particleMap[v] || v;
+                if (window.StateManager) {
+                    window.StateManager.setState({ particleType: validParticle });
                 }
             }
         };

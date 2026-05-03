@@ -54,6 +54,7 @@
             <button id="redo-btn" title="重做 (Ctrl+Y)" disabled>↪</button>
             <button id="clear-canvas" title="清空 (C)">🗑</button>
             <button id="fullscreen-toggle" title="全屏 (F)">⛶</button>
+            <button id="shortcuts-toggle" title="快捷键 (?)">⌨️</button>
         </div>
         <div class="toolbar-spacer"></div>
         <button class="settings-toggle" id="settings-toggle">⚙</button>
@@ -349,6 +350,59 @@
                         <span id="sidebar-fav-count" class="fav-badge">0 收藏</span>
                         <button id="sidebar-fav-btn" class="preset-btn" style="border-color: #ffd700; color: #ffd700;">查看收藏</button>
                     </div>
+                    <div id="favorites-history-list" class="likes-history-list" style="display:none;">
+                        <div class="lh-empty">暂无收藏记录</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 快捷键说明 -->
+            <div class="sp-section">
+                <div class="sp-section-head" data-toggle="sec-shortcuts">⌨️ 快捷键 <span class="sp-arrow">▾</span></div>
+                <div class="sp-section-body" id="sec-shortcuts">
+                    <div class="shortcuts-grid">
+                        <div class="sh-group">
+                            <div class="sh-title">绘图控制</div>
+                            <div class="sh-item"><kbd>↑</kbd><kbd>↓</kbd><span>对称加减</span></div>
+                            <div class="sh-item"><kbd>←</kbd><kbd>→</kbd><span>速度加减</span></div>
+                            <div class="sh-item"><kbd>Space</kbd><span>暂停旋转</span></div>
+                            <div class="sh-item"><kbd>C</kbd><span>清空画布</span></div>
+                            <div class="sh-item"><kbd>1</kbd>-<kbd>4</kbd><span>切换画笔</span></div>
+                        </div>
+                        <div class="sh-group">
+                            <div class="sh-title">效果切换</div>
+                            <div class="sh-item"><kbd>T</kbd><span>拖尾模式</span></div>
+                            <div class="sh-item"><kbd>G</kbd><span>发光效果</span></div>
+                            <div class="sh-item"><kbd>M</kbd><span>音乐开关</span></div>
+                            <div class="sh-item"><kbd>A</kbd><span>动态动画</span></div>
+                            <div class="sh-item"><kbd>R</kbd><span>随机配置</span></div>
+                        </div>
+                        <div class="sh-group">
+                            <div class="sh-title">功能面板</div>
+                            <div class="sh-item"><kbd>E</kbd><span>进化变异</span></div>
+                            <div class="sh-item"><kbd>H</kbd><span>图案杂交</span></div>
+                            <div class="sh-item"><kbd>L</kbd><span>遗传算法</span></div>
+                            <div class="sh-item"><kbd>P</kbd><span>粒子物理</span></div>
+                            <div class="sh-item"><kbd>S</kbd><span>分形生成</span></div>
+                        </div>
+                        <div class="sh-group">
+                            <div class="sh-title">其他功能</div>
+                            <div class="sh-item"><kbd>F</kbd><span>全屏模式</span></div>
+                            <div class="sh-item"><kbd>V</kbd><span>音频可视化</span></div>
+                            <div class="sh-item"><kbd>B</kbd><span>主题故事</span></div>
+                            <div class="sh-item"><kbd>X</kbd><span>导出菜单</span></div>
+                            <div class="sh-item"><kbd>I</kbd><span>图片导入</span></div>
+                            <div class="sh-item"><kbd>K</kbd><span>AI模板</span></div>
+                            <div class="sh-item"><kbd>D</kbd><span>隐藏侧边栏</span></div>
+                        </div>
+                        <div class="sh-group">
+                            <div class="sh-title">系统操作</div>
+                            <div class="sh-item"><kbd>Ctrl+Z</kbd><span>撤销</span></div>
+                            <div class="sh-item"><kbd>Ctrl+S</kbd><span>保存图片</span></div>
+                            <div class="sh-item"><kbd>Ctrl+Y</kbd><span>重做</span></div>
+                        </div>
+                    </div>
+                    <button id="custom-shortcuts-btn" class="preset-btn" style="margin-top:10px;width:100%;">⚙️ 自定义快捷键</button>
                 </div>
             </div>
         </div>
@@ -390,7 +444,7 @@
 
     <!-- 快捷键提示 -->
     <div class="shortcuts-hint" id="shortcuts-hint">
-        <span>快捷键: ↑↓对称 | ←→速度 | Space暂停 | C清空 | T拖尾 | M音乐 | R随机 | G发光 | F全屏 | 1-4画笔 | Ctrl+Z撤销 | E进化 | H杂交 | V可视化 | B故事 | X导出 | L遗传 | P物理 | S分形 | I图片 | A AI</span>
+        <span>快捷键: ↑↓对称 | ←→速度 | Space暂停 | C清空 | T拖尾 | M音乐 | R随机 | G发光 | F全屏 | 1-4画笔 | Ctrl+Z撤销 | E进化 | H杂交 | V可视化 | B故事 | X导出 | L遗传 | P物理 | S分形 | I图片 | A 动画</span>
     </div>
 
     <!-- 工具函数 -->

@@ -392,5 +392,5 @@ class ExportManager {
     }
 }
 
-// 导出
-window.ExportManager = ExportManager;
+// 导出 - 实例化以便调用实例方法
+window.ExportManager = new ExportManager();
