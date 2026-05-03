@@ -25,12 +25,32 @@ const FullscreenController = {
 
     cachedCanvasSize: 0, // 进入全屏时的画布尺寸快照
 
+    // 点赞状态
+    likeCount: 0,
+    isLiked: false,
+    likeHistory: [], // 点赞历史记录
+
     /**
      * 初始化全屏控制器
      */
     init() {
+        this._loadSavedState();
         this._bindEvents();
         this._syncFullscreenControls();
+        this._bindActionButtons();
+        this._bindPanelEvents();
+        this._updateUI();
+    },
+
+    /**
+     * 加载保存的状态
+     */
+    _loadSavedState() {
+        // 加载点赞状态
+        const savedLikes = JSON.parse(localStorage.getItem('kaleidoscope_likes') || '{}');
+        this.likeCount = savedLikes.count || 0;
+        this.isLiked = savedLikes.isLiked || false;
+        this.likeHistory = JSON.parse(localStorage.getItem('kaleidoscope_like_history') || '[]');
     },
 
     /**
@@ -66,6 +86,19 @@ const FullscreenController = {
             // Esc 退出全屏
             if (e.key === 'Escape' && this.isFullscreen) {
                 this.exitFullscreen();
+            }
+            // 全屏模式下的快捷键
+            if (this.isFullscreen && !e.ctrlKey && !e.metaKey) {
+                if (e.key === 'l' || e.key === 'L') {
+                    e.preventDefault();
+                    this.handleLike();
+                } else if (e.key === 'p' || e.key === 'P') {
+                    e.preventDefault();
+                    this.handleScreenshot();
+                } else if (e.key === 's' || e.key === 'S') {
+                    e.preventDefault();
+                    this.handleFavorite();
+                }
             }
         });
 
@@ -497,5 +530,646 @@ const FullscreenController = {
                 RandomGenerator.applyRandom();
             });
         }
+
+        // 重做按钮同步
+        const fsRedo = document.getElementById('fs-redo-btn');
+        const mainRedo = document.getElementById('redo-btn');
+        if (fsRedo && mainRedo) {
+            fsRedo.addEventListener('click', () => StateManager.redo());
+            const redoObserver = new MutationObserver(() => {
+                fsRedo.disabled = mainRedo.disabled;
+            });
+            redoObserver.observe(mainRedo, { attributes: true, attributeFilter: ['disabled'] });
+        }
+    },
+
+    /**
+     * 绑定操作按钮事件
+     */
+    _bindActionButtons() {
+        // 点赞按钮 - 左键点赞
+        const likeBtn = document.getElementById('fs-like-btn');
+        if (likeBtn) {
+            likeBtn.addEventListener('click', () => this.handleLike());
+        }
+
+        // 收藏按钮 - 左键收藏
+        const favBtn = document.getElementById('fs-favorite-btn');
+        if (favBtn) {
+            favBtn.addEventListener('click', () => this.handleFavorite());
+        }
+
+        // 分享按钮
+        const shareBtn = document.getElementById('fs-share-btn');
+        if (shareBtn) {
+            shareBtn.addEventListener('click', () => this.handleShare());
+        }
+
+        // 截图按钮
+        const screenshotBtn = document.getElementById('fs-screenshot-btn');
+        if (screenshotBtn) {
+            screenshotBtn.addEventListener('click', () => this.handleScreenshot());
+        }
+    },
+
+    /**
+     * 绑定面板事件
+     */
+    _bindPanelEvents() {
+        // 收藏夹面板
+        const favOverlay = document.getElementById('favorites-overlay');
+        const favClose = document.getElementById('fp-close');
+        if (favOverlay) favOverlay.addEventListener('click', () => this.closeFavoritesPanel());
+        if (favClose) favClose.addEventListener('click', () => this.closeFavoritesPanel());
+
+        // 侧边栏点赞历史切换
+        const likesBtn = document.getElementById('sidebar-likes-btn');
+        const likesList = document.getElementById('likes-history-list');
+        if (likesBtn && likesList) {
+            likesBtn.addEventListener('click', () => {
+                const isHidden = likesList.style.display === 'none';
+                likesList.style.display = isHidden ? 'block' : 'none';
+                likesBtn.textContent = isHidden ? '收起' : '查看记录';
+            });
+        }
+
+        // 侧边栏收藏切换
+        const favBtn = document.getElementById('sidebar-fav-btn');
+        if (favBtn) {
+            favBtn.addEventListener('click', () => this.openFavoritesPanel());
+        }
+    },
+
+    /**
+     * 更新UI状态
+     */
+    _updateUI() {
+        const likeBtn = document.getElementById('fs-like-btn');
+        const favBtn = document.getElementById('fs-favorite-btn');
+        const favorites = this._getFavorites();
+
+        if (likeBtn) {
+            if (this.isLiked) {
+                likeBtn.classList.add('liked');
+                likeBtn.innerHTML = this.likeCount > 0 ? `❤️ ${this.likeCount}` : '❤️ 已赞';
+            } else {
+                likeBtn.classList.remove('liked');
+                likeBtn.innerHTML = this.likeCount > 0 ? `🤍 ${this.likeCount}` : '❤️ 点赞';
+            }
+        }
+
+        if (favBtn) {
+            if (favorites.length > 0) {
+                favBtn.classList.add('favorited');
+                favBtn.innerHTML = `⭐ ${favorites.length}`;
+            } else {
+                favBtn.classList.remove('favorited');
+                favBtn.innerHTML = '⭐ 收藏';
+            }
+        }
+
+        // 更新侧边栏点赞计数
+        const sidebarLikes = document.getElementById('sidebar-likes-count');
+        if (sidebarLikes) sidebarLikes.textContent = `${this.likeCount} 赞`;
+
+        // 更新侧边栏收藏计数
+        const sidebarFav = document.getElementById('sidebar-fav-count');
+        if (sidebarFav) sidebarFav.textContent = `${favorites.length} 收藏`;
+
+        // 更新收藏夹计数
+        const favCount = document.getElementById('favorites-count');
+        if (favCount) favCount.textContent = `${favorites.length} 个收藏`;
+
+        // 更新点赞历史列表
+        this._renderLikesHistoryInSidebar();
+    },
+
+    /**
+     * 点赞功能
+     */
+    handleLike() {
+        const likeBtn = document.getElementById('fs-like-btn');
+
+        if (this.isLiked) {
+            // 取消点赞
+            this.likeCount = Math.max(0, this.likeCount - 1);
+            this.isLiked = false;
+            likeBtn.classList.remove('liked');
+            likeBtn.innerHTML = this.likeCount > 0 ? `🤍 ${this.likeCount}` : '❤️ 点赞';
+            this._showToast(`取消点赞，当前 ${this.likeCount} 个赞`);
+
+            // 添加到历史记录
+            this._addLikeRecord('取消点赞');
+        } else {
+            // 点赞
+            this.likeCount++;
+            this.isLiked = true;
+            likeBtn.classList.add('liked');
+            likeBtn.innerHTML = `❤️ ${this.likeCount}`;
+            this._createLikeParticle();
+            this._showToast(`✨ 感谢点赞！ +1 (共 ${this.likeCount} 个赞)`);
+
+            // 添加到历史记录
+            this._addLikeRecord('点赞 +1');
+        }
+
+        this._saveLikeState();
+        this._updateUI();
+    },
+
+    /**
+     * 添加点赞记录
+     */
+    _addLikeRecord(action) {
+        const record = {
+            id: Date.now(),
+            action: action,
+            timestamp: new Date().toLocaleString('zh-CN')
+        };
+        this.likeHistory.unshift(record);
+        // 最多保存50条记录
+        if (this.likeHistory.length > 50) this.likeHistory.pop();
+        localStorage.setItem('kaleidoscope_like_history', JSON.stringify(this.likeHistory));
+        this._renderLikesHistoryInSidebar();
+    },
+
+    /**
+     * 渲染点赞历史到侧边栏
+     */
+    _renderLikesHistoryInSidebar() {
+        const list = document.getElementById('likes-history-list');
+        if (!list) return;
+
+        if (this.likeHistory.length === 0) {
+            list.innerHTML = '<div class="lh-empty">暂无点赞记录</div>';
+            return;
+        }
+
+        list.innerHTML = this.likeHistory.slice(0, 10).map(record => `
+            <div class="lh-item">
+                <span class="lh-icon">${record.action.includes('取消') ? '💔' : '❤️'}</span>
+                <span class="lh-text">${record.action}</span>
+                <span class="lh-time">${record.timestamp.split(' ')[1] || ''}</span>
+            </div>
+        `).join('');
+    },
+
+    /**
+     * 创建点赞飘心动画
+     */
+    _createLikeParticle() {
+        const particles = ['❤️', '💖', '💗', '💕', '✨', '🎉'];
+        for (let i = 0; i < 6; i++) {
+            setTimeout(() => {
+                const particle = document.createElement('div');
+                particle.className = 'like-particle';
+                particle.textContent = particles[Math.floor(Math.random() * particles.length)];
+                particle.style.left = `${30 + Math.random() * 40}%`;
+                particle.style.top = `${30 + Math.random() * 40}%`;
+                document.body.appendChild(particle);
+                setTimeout(() => particle.remove(), 1200);
+            }, i * 80);
+        }
+    },
+
+    /**
+     * 收藏功能
+     */
+    handleFavorite() {
+        const favBtn = document.getElementById('fs-favorite-btn');
+        const favorites = this._getFavorites();
+
+        // 保存当前截图
+        const canvas = document.getElementById('kaleidoscope-canvas');
+        const dataUrl = canvas.toDataURL('image/png');
+        const config = this._getCurrentConfig();
+
+        const id = Date.now();
+        favorites.push({
+            id,
+            ...config,
+            dataUrl,
+            thumbnail: dataUrl,
+            timestamp: id,
+            name: `收藏 ${favorites.length + 1}`
+        });
+        this._saveFavorites(favorites);
+
+        favBtn.classList.add('favorited');
+        favBtn.innerHTML = `⭐ ${favorites.length}`;
+        this._showToast(`⭐ 已收藏！共 ${favorites.length} 个收藏`);
+        this._updateUI();
+        this._renderFavorites();
+    },
+
+    /**
+     * 打开收藏夹面板
+     */
+    openFavoritesPanel() {
+        let favOverlay = document.getElementById('favorites-overlay');
+        let favPanel = document.getElementById('favorites-panel');
+        
+        // 如果面板不存在，则动态创建
+        if (!favOverlay || !favPanel) {
+            favOverlay = document.createElement('div');
+            favOverlay.id = 'favorites-overlay';
+            favOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:1990;';
+            favOverlay.onclick = () => this.closeFavoritesPanel();
+            
+            favPanel = document.createElement('div');
+            favPanel.id = 'favorites-panel';
+            favPanel.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.9);width:500px;max-width:90vw;max-height:80vh;background:rgba(14,14,32,0.98);border:1px solid rgba(255,215,0,0.3);border-radius:14px;z-index:1991;display:flex;flex-direction:column;box-shadow:0 16px 64px rgba(0,0,0,0.6);opacity:0;pointer-events:none;transition:all 0.35s;';
+            
+            favPanel.innerHTML = `
+                <div class="fp-header" style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid rgba(255,215,0,0.15);flex-shrink:0;">
+                    <span style="font-size:16px;font-weight:700;color:#ffd700;">⭐ 收藏夹</span>
+                    <span id="favorites-count" style="font-size:12px;color:#8899aa;margin-left:auto;">0 个收藏</span>
+                    <button id="favorites-clear-btn" style="display:none;padding:4px 10px;font-size:11px;background:rgba(255,69,69,0.1);border:1px solid rgba(255,69,69,0.3);border-radius:4px;color:#ff6b6b;cursor:pointer;">🗑 清空</button>
+                    <button id="fp-close" style="background:transparent;border:none;color:#8899aa;font-size:18px;cursor:pointer;padding:2px 6px;">✕</button>
+                </div>
+                <div id="favorites-list" style="flex:1;overflow-y:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;min-height:200px;">
+                    <div style="grid-column:1/-1;text-align:center;color:#8899aa;font-size:13px;padding:40px 20px;line-height:1.6;">暂无收藏<br>在全屏模式下点击 ⭐ 添加收藏</div>
+                </div>
+            `;
+            
+            document.body.appendChild(favOverlay);
+            document.body.appendChild(favPanel);
+            
+            // 使用 addEventListener 绑定事件
+            const closeBtn = document.getElementById('fp-close');
+            if (closeBtn) closeBtn.addEventListener('click', () => this.closeFavoritesPanel());
+            
+            const clearBtn = document.getElementById('favorites-clear-btn');
+            if (clearBtn) clearBtn.addEventListener('click', () => this.clearAllFavorites());
+        }
+        
+        this._renderFavorites();
+        favOverlay.classList.add('show');
+        favPanel.classList.add('show');
+    },
+
+    /**
+     * 关闭收藏夹面板
+     */
+    closeFavoritesPanel() {
+        const favOverlay = document.getElementById('favorites-overlay');
+        const favPanel = document.getElementById('favorites-panel');
+        if (favOverlay) favOverlay.classList.remove('show');
+        if (favPanel) favPanel.classList.remove('show');
+    },
+
+    /**
+     * 渲染收藏列表
+     */
+    _renderFavorites() {
+        const list = document.getElementById('favorites-list');
+        const count = document.getElementById('favorites-count');
+        const clearBtn = document.getElementById('favorites-clear-btn');
+        // 如果收藏面板元素不存在，尝试创建
+        if (!list) {
+            this._createFavoritesPanel();
+            return;
+        }
+
+        const favorites = this._getFavorites();
+        if (count) count.textContent = `${favorites.length} 个收藏`;
+        if (clearBtn) clearBtn.style.display = favorites.length > 0 ? 'inline-block' : 'none';
+
+        if (favorites.length === 0) {
+            list.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#8899aa;font-size:13px;padding:40px 20px;line-height:1.6;">暂无收藏<br>在全屏模式下点击 ⭐ 添加收藏</div>';
+            return;
+        }
+
+        list.innerHTML = favorites.map(fav => `
+            <div class="favorite-item" data-id="${fav.id}" style="position:relative;border-radius:8px;overflow:hidden;border:2px solid rgba(255,215,0,0.2);background:rgba(0,0,0,0.3);transition:all 0.25s;cursor:pointer;">
+                <img src="${fav.thumbnail || fav.dataUrl}" alt="收藏预览" style="width:100%;aspect-ratio:1;object-fit:cover;display:block;">
+                <div style="padding:8px;font-size:11px;color:#8899aa;">${fav.name || '收藏 ' + fav.id}</div>
+                <div style="display:flex;gap:4px;padding:6px 8px;background:rgba(0,0,0,0.8);">
+                    <button class="fav-load-btn" data-id="${fav.id}" style="flex:1;font-size:10px;padding:4px 6px;border-radius:4px;background:rgba(0,210,255,0.1);border:1px solid rgba(0,210,255,0.3);color:#00d2ff;cursor:pointer;">应用</button>
+                    <button class="fav-delete-btn" data-id="${fav.id}" style="flex:1;font-size:10px;padding:4px 6px;border-radius:4px;background:rgba(255,69,69,0.1);border:1px solid rgba(255,69,69,0.3);color:#ff6b6b;cursor:pointer;">删除</button>
+                </div>
+            </div>
+        `).join('');
+
+        // 绑定按钮事件（使用事件委托）
+        list.querySelectorAll('.fav-load-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.loadFavorite(parseInt(btn.dataset.id)));
+        });
+        list.querySelectorAll('.fav-delete-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.deleteFavorite(parseInt(btn.dataset.id)));
+        });
+    },
+
+    /**
+     * 创建收藏面板
+     */
+    _createFavoritesPanel() {
+        const existing = document.getElementById('favorites-overlay');
+        if (existing) return;
+        
+        const favOverlay = document.createElement('div');
+        favOverlay.id = 'favorites-overlay';
+        favOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:1990;';
+        favOverlay.addEventListener('click', () => this.closeFavoritesPanel());
+        
+        const favPanel = document.createElement('div');
+        favPanel.id = 'favorites-panel';
+        favPanel.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.9);width:500px;max-width:90vw;max-height:80vh;background:rgba(14,14,32,0.98);border:1px solid rgba(255,215,0,0.3);border-radius:14px;z-index:1991;display:flex;flex-direction:column;box-shadow:0 16px 64px rgba(0,0,0,0.6);opacity:0;pointer-events:none;transition:all 0.35s;';
+        
+        favPanel.innerHTML = `
+            <div class="fp-header" style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid rgba(255,215,0,0.15);flex-shrink:0;">
+                <span style="font-size:16px;font-weight:700;color:#ffd700;">⭐ 收藏夹</span>
+                <span id="favorites-count" style="font-size:12px;color:#8899aa;margin-left:auto;">0 个收藏</span>
+                <button id="favorites-clear-btn" style="display:none;padding:4px 10px;font-size:11px;background:rgba(255,69,69,0.1);border:1px solid rgba(255,69,69,0.3);border-radius:4px;color:#ff6b6b;cursor:pointer;">🗑 清空</button>
+                <button id="fp-close" style="background:transparent;border:none;color:#8899aa;font-size:18px;cursor:pointer;padding:2px 6px;">✕</button>
+            </div>
+            <div id="favorites-list" style="flex:1;overflow-y:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;min-height:200px;">
+                <div style="grid-column:1/-1;text-align:center;color:#8899aa;font-size:13px;padding:40px 20px;line-height:1.6;">暂无收藏<br>在全屏模式下点击 ⭐ 添加收藏</div>
+            </div>
+        `;
+        
+        document.body.appendChild(favOverlay);
+        document.body.appendChild(favPanel);
+        
+        // 使用 addEventListener 绑定事件
+        const closeBtn = document.getElementById('fp-close');
+        if (closeBtn) closeBtn.addEventListener('click', () => this.closeFavoritesPanel());
+        
+        const clearBtn = document.getElementById('favorites-clear-btn');
+        if (clearBtn) clearBtn.addEventListener('click', () => this.clearAllFavorites());
+        
+        // 显示面板
+        favOverlay.classList.add('show');
+        favPanel.classList.add('show');
+    },
+
+    /**
+     * 加载收藏配置
+     */
+    loadFavorite(id) {
+        const favorites = this._getFavorites();
+        const fav = favorites.find(f => f.id === id);
+        if (!fav) return;
+
+        // 应用配置
+        const config = { ...fav };
+        delete config.id;
+        delete config.dataUrl;
+        delete config.thumbnail;
+        delete config.timestamp;
+        delete config.name;
+
+        StateManager.setState(config);
+        this._showToast('✅ 已应用收藏配置');
+        this.closeFavoritesPanel();
+    },
+
+    /**
+     * 删除收藏
+     */
+    deleteFavorite(id) {
+        let favorites = this._getFavorites();
+        favorites = favorites.filter(f => f.id !== id);
+        this._saveFavorites(favorites);
+        this._showToast('🗑 已删除收藏');
+        this._updateUI();
+        this._renderFavorites();
+    },
+
+    /**
+     * 清空所有收藏
+     */
+    clearAllFavorites() {
+        if (!confirm('确定要清空所有收藏吗？此操作不可撤销。')) return;
+        this._saveFavorites([]);
+        this._showToast('🗑 已清空所有收藏');
+        this._updateUI();
+        this._renderFavorites();
+    },
+
+    /**
+     * 将 Data URL 转换为 Blob
+     */
+    _dataURLtoBlob(dataUrl) {
+        const arr = dataUrl.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new Blob([u8arr], { type: mime });
+    },
+
+    /**
+     * 分享功能
+     */
+    async handleShare() {
+        try {
+            const canvas = document.getElementById('kaleidoscope-canvas');
+            const dataUrl = canvas.toDataURL('image/png');
+
+            // 创建分享链接（使用 base64 数据）
+            const shareUrl = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(dataUrl)}`;
+
+            // 复制到剪贴板
+            try {
+                await navigator.clipboard.writeText(shareUrl);
+                this._showToast('🔗 分享链接已复制到剪贴板！');
+            } catch {
+                // 剪贴板不可用，下载图片
+            }
+
+            // 下载图片
+            const link = document.createElement('a');
+            link.download = `万花筒_${Date.now()}.png`;
+            link.href = dataUrl;
+            link.click();
+
+            // 尝试 Web Share API
+            if (navigator.share) {
+                try {
+                    const blob = this._dataURLtoBlob(dataUrl);
+                    const file = new File([blob], 'kaleidoscope.png', { type: 'image/png' });
+
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            title: '我的万花筒作品',
+                            text: '快来看看我的创意万花筒作品！✨',
+                            files: [file]
+                        });
+                    }
+                } catch (e) {
+                    // Web Share API 不可用或用户取消，不提示
+                }
+            }
+
+            // 显示分享面板
+            this._showSharePanel(shareUrl, dataUrl);
+        } catch (err) {
+            console.warn('分享失败:', err);
+            this._showToast('⚠️ 分享失败，请重试');
+        }
+    },
+
+    /**
+     * 显示分享面板
+     */
+    _showSharePanel(shareUrl, dataUrl) {
+        // 移除旧面板
+        const oldPanel = document.getElementById('share-temp-panel');
+        if (oldPanel) oldPanel.remove();
+        const oldOverlay = document.getElementById('share-overlay-temp');
+        if (oldOverlay) oldOverlay.remove();
+
+        // 创建分享面板
+        const panel = document.createElement('div');
+        panel.id = 'share-temp-panel';
+        panel.style.cssText = `
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(14, 14, 32, 0.98); border: 1px solid rgba(0, 210, 255, 0.3);
+            border-radius: 14px; padding: 20px; width: 380px; max-width: 90vw; z-index: 10000;
+            box-shadow: 0 16px 64px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 12px;
+        `;
+
+        panel.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 15px; font-weight: 700; color: #00d2ff;">📤 分享作品</span>
+                <button id="share-close-btn" style="background: transparent; border: none; color: #8899aa; font-size: 18px; cursor: pointer;">✕</button>
+            </div>
+            <img src="${dataUrl}" style="width: 100%; border-radius: 8px; aspect-ratio: 1; object-fit: cover;">
+            <div class="share-link-container" style="margin: 0;">
+                <input type="text" value="${shareUrl.substring(0, 60)}..." readonly id="share-url-input">
+                <button id="copy-url-btn">复制</button>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button id="share-cancel-btn" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #e8ecf1; cursor: pointer;">关闭</button>
+            </div>
+        `;
+
+        // 添加遮罩
+        const overlay = document.createElement('div');
+        overlay.id = 'share-overlay-temp';
+        overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 9999;';
+
+        // 绑定事件
+        const closePanel = () => { panel.remove(); overlay.remove(); };
+        panel.querySelector('#share-close-btn').addEventListener('click', closePanel);
+        panel.querySelector('#share-cancel-btn').addEventListener('click', closePanel);
+        overlay.addEventListener('click', closePanel);
+
+        panel.querySelector('#copy-url-btn').addEventListener('click', function() {
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                this.textContent = '已复制!';
+                this.classList.add('copied');
+                setTimeout(() => {
+                    this.textContent = '复制';
+                    this.classList.remove('copied');
+                }, 2000);
+            });
+        });
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(panel);
+    },
+
+    /**
+     * 截图功能
+     */
+    handleScreenshot() {
+        const canvas = document.getElementById('kaleidoscope-canvas');
+        const dataUrl = canvas.toDataURL('image/png');
+
+        // 保存到画廊
+        const gallery = JSON.parse(localStorage.getItem('kaleidoscope_gallery') || '[]');
+        gallery.unshift({ id: Date.now(), dataUrl, timestamp: Date.now() });
+        // 最多保存20张
+        if (gallery.length > 20) gallery.pop();
+        localStorage.setItem('kaleidoscope_gallery', JSON.stringify(gallery));
+
+        // 触发画廊更新
+        window.dispatchEvent(new CustomEvent('gallery-updated'));
+
+        this._showToast('📷 截图已保存到画廊！');
+    },
+
+    /**
+     * 获取当前配置
+     */
+    _getCurrentConfig() {
+        const state = StateManager.state;
+        return {
+            strokeColor: state.strokeColor,
+            strokeWidth: state.strokeWidth,
+            symmetryCount: state.symmetryCount,
+            symmetryMode: state.symmetryMode,
+            bgColor: state.bgColor,
+            glowEnabled: state.glowEnabled,
+            glowColor: state.glowColor,
+            glowBlur: state.glowBlur,
+            rainbowMode: state.rainbowMode,
+            gradientMode: state.gradientMode,
+            gradientFrom: state.gradientFrom,
+            gradientTo: state.gradientTo,
+            blendMode: state.blendMode,
+            brushType: state.brushType,
+            trailsEnabled: state.trailsEnabled,
+            trailsOpacity: state.trailsOpacity
+        };
+    },
+
+    /**
+     * 获取收藏列表
+     */
+    _getFavorites() {
+        return JSON.parse(localStorage.getItem('kaleidoscope_favorites') || '[]');
+    },
+
+    /**
+     * 保存收藏列表
+     */
+    _saveFavorites(favorites) {
+        try {
+            localStorage.setItem('kaleidoscope_favorites', JSON.stringify(favorites));
+        } catch (e) {
+            if (e.name === 'QuotaExceededError' || e.code === 22) {
+                this._showToast('⚠️ 收藏已满，请删除一些旧收藏后再试');
+                console.warn('[FullscreenController] localStorage quota exceeded');
+            } else {
+                throw e;
+            }
+        }
+    },
+
+    /**
+     * 保存点赞状态
+     */
+    _saveLikeState() {
+        try {
+            localStorage.setItem('kaleidoscope_likes', JSON.stringify({
+                count: this.likeCount,
+                isLiked: this.isLiked
+            }));
+        } catch (e) {
+            if (e.name !== 'QuotaExceededError' && e.code !== 22) {
+                throw e;
+            }
+        }
+    },
+
+    /**
+     * 显示 Toast 提示
+     */
+    _showToast(message, duration = 2500) {
+        const toast = document.getElementById('toast');
+        if (toast) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), duration);
+        }
     }
 };
+
+// 暴露到全局，供 inline onclick 使用
+window.FullscreenController = FullscreenController;

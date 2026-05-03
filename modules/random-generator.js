@@ -1043,7 +1043,7 @@ const RandomGenerator = {
                 const outerR = maxR * ((r + 1) / rings * 0.85);
                 const segs = 5;
                 
-                const扇形 = [];
+                const sector = [];
                 for (let j = 0; j <= segs; j++) {
                     const t = j / segs;
                     const angle = startAngle + t * (endAngle - startAngle);
@@ -1055,19 +1055,19 @@ const RandomGenerator = {
                     const outerY = cy + outerR * Math.sin(angle);
                     
                     if (j === 0) {
-                       扇形.push({ x: innerX, y: innerY });
+                        sector.push({ x: innerX, y: innerY });
                     }
-                   扇形.push({ x: outerX, y: outerY });
+                    sector.push({ x: outerX, y: outerY });
                     if (j === segs) {
-                       扇形.push({ x: innerX, y: innerY });
+                        sector.push({ x: innerX, y: innerY });
                     }
                 }
                 
-                if (扇形.length > 2) {
-                   扇形._color = colors[s % colors.length];
-                   扇形._decor = true;
-                   扇形._fill = true;
-                    strokes.push(扇形);
+                if (sector.length > 2) {
+                    sector._color = colors[s % colors.length];
+                    sector._decor = true;
+                    sector._fill = true;
+                    strokes.push(sector);
                 }
             }
         }
@@ -2687,6 +2687,41 @@ const RandomGenerator = {
         }
     },
 
+    /**
+     * 获取颜色亮度值
+     */
+    _getColorBrightness(color) {
+        if (!color || !color.startsWith('#')) return 128;
+        try {
+            const hex = color.slice(1);
+            let r, g, b;
+            if (hex.length === 3) {
+                r = parseInt(hex[0] + hex[0], 16);
+                g = parseInt(hex[1] + hex[1], 16);
+                b = parseInt(hex[2] + hex[2], 16);
+            } else {
+                r = parseInt(hex.slice(0, 2), 16);
+                g = parseInt(hex.slice(2, 4), 16);
+                b = parseInt(hex.slice(4, 6), 16);
+            }
+            return (r * 299 + g * 587 + b * 114) / 1000;
+        } catch (e) {
+            return 128;
+        }
+    },
+
+    /**
+     * 获取随机明亮颜色
+     */
+    _getRandomBrightColor() {
+        const brightColors = [
+            '#ff69b4', '#ffd700', '#00ff7f', '#ff6347', '#00bfff',
+            '#ff1493', '#7fff00', '#ff4500', '#00fa9a', '#ff00ff',
+            '#1e90ff', '#ff7f50', '#adff2f', '#ff2400', '#00ff00'
+        ];
+        return brightColors[Math.floor(Math.random() * brightColors.length)];
+    },
+
     // ============ 随机应用接口 ============
 
     /**
@@ -2728,6 +2763,30 @@ const RandomGenerator = {
                 if (!strokes || strokes.length === 0) {
                     console.error('[RandomGenerator] 无法生成有效笔画');
                     return null;
+                }
+            }
+            
+            // 安全检查：确保深色背景上有足够的颜色对比度
+            const bgBrightness = this._getColorBrightness(config.bgColor);
+            if (bgBrightness < 50) { // 深色背景
+                // 检查是否有足够的亮色笔画
+                const strokeColors = new Set(strokes.filter(s => s._color).map(s => s._color));
+                const hasBrightStroke = Array.from(strokeColors).some(c => this._getColorBrightness(c) > 100);
+                
+                if (!hasBrightStroke && strokes.length > 0) {
+                    // 添加一个明亮的边框笔画确保可见性
+                    console.log('[RandomGenerator] 深色背景，添加亮色边框笔画');
+                    const brightBorderColor = this._getRandomBrightColor();
+                    const borderStroke = this.mandala(
+                        StateManager.state.canvasWidth / 2,
+                        StateManager.state.canvasHeight / 2,
+                        Math.min(StateManager.state.canvasWidth, StateManager.state.canvasHeight) * 0.45,
+                        3,
+                        [brightBorderColor],
+                        { ...config, strokeWidth: 3 },
+                        config
+                    );
+                    strokes.push(...borderStroke);
                 }
             }
             

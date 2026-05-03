@@ -330,6 +330,26 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 收藏与点赞 -->
+            <div class="sp-section">
+                <div class="sp-section-head" data-toggle="sec-social">❤️⭐ 收藏与点赞 <span class="sp-arrow">▾</span></div>
+                <div class="sp-section-body" id="sec-social">
+                    <div class="sp-field">
+                        <label>点赞</label>
+                        <span id="sidebar-likes-count" class="likes-badge">0 赞</span>
+                        <button id="sidebar-likes-btn" class="preset-btn" style="border-color: #ff69b4; color: #ff69b4;">查看记录</button>
+                    </div>
+                    <div id="likes-history-list" class="likes-history-list" style="display:none;">
+                        <div class="lh-empty">暂无点赞记录</div>
+                    </div>
+                    <div class="sp-field">
+                        <label>收藏</label>
+                        <span id="sidebar-fav-count" class="fav-badge">0 收藏</span>
+                        <button id="sidebar-fav-btn" class="preset-btn" style="border-color: #ffd700; color: #ffd700;">查看收藏</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -338,11 +358,17 @@
         <canvas id="kaleidoscope-canvas"></canvas>
         <div class="fullscreen-controls" id="fullscreen-controls">
             <div class="fullscreen-tools">
+                <button id="fs-like-btn" class="fs-like-btn" title="点赞 (L)">❤️ 点赞</button>
+                <button id="fs-favorite-btn" class="fs-favorite-btn" title="收藏 (S)">⭐ 收藏</button>
+                <button id="fs-share-btn" class="fs-share-btn" title="分享">📤 分享</button>
+                <span class="fs-divider"></span>
                 <input type="color" id="fs-stroke-color" value="#e94560" title="笔触颜色">
                 <input type="range" id="fs-stroke-width" min="1" max="30" value="5" title="线条宽度">
                 <button id="fs-undo-btn" title="撤销" disabled>↩</button>
+                <button id="fs-redo-btn" title="重做" disabled>↪</button>
                 <button id="fs-clear-btn" title="清空">🗑</button>
                 <button id="fs-random-btn" title="随机生成 (R)">🎲 随机</button>
+                <button id="fs-screenshot-btn" title="截图 (P)">📷</button>
                 <button id="fs-exit-btn" class="fs-exit-btn" title="退出全屏 (F 或 Esc)">⛶ 退出全屏</button>
             </div>
         </div>
@@ -358,6 +384,8 @@
             <div class="gallery-empty">暂无截图，按 📷 按钮截图</div>
         </div>
     </div>
+
+
 
     <!-- 快捷键提示 -->
     <div class="shortcuts-hint" id="shortcuts-hint">
@@ -376,14 +404,14 @@
     <script src="modules/noise-generator.js?v=2026050302"></script>
     <script src="modules/color-palette.js?v=2026050302"></script>
     <script src="modules/advanced-generators.js?v=2026050302"></script>
-    <script src="modules/random-generator.js?v=2026050304"></script>
+    <script src="modules/random-generator.js?v=2026050306"></script>
     <script src="modules/canvas-renderer.js?v=2026050302"></script>
     <script src="modules/animation-controller.js?v=2026050302"></script>
     <script src="modules/background-animation.js?v=2026050304"></script>
     <script src="modules/input-handler.js?v=2026050302"></script>
     <script src="modules/keyboard-handler.js?v=2026050302"></script>
     <script src="modules/ui-controller.js?v=2026050302"></script>
-    <script src="modules/fullscreen-controller.js?v=2026050302"></script>
+    <script src="modules/fullscreen-controller.js?v=2026050310"></script>
     <script src="main.js?v=2026050304"></script>
 </body>
 </html>

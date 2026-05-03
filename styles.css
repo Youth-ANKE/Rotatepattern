@@ -509,6 +509,169 @@ body.fullscreen-mode .fullscreen-controls { display: flex; }
 .fullscreen-tools input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); box-shadow: 0 0 8px var(--accent-glow), 0 2px 6px rgba(0,0,0,0.3); cursor: pointer; }
 .fullscreen-tools input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 
+/* 分隔线 */
+.fs-divider { width: 1px; height: 24px; background: rgba(255, 255, 255, 0.15); margin: 0 4px; }
+
+/* 点赞按钮 */
+.fs-like-btn { background: rgba(255, 105, 180, 0.15) !important; border-color: rgba(255, 105, 180, 0.4) !important; color: #ff69b4 !important; }
+.fs-like-btn:hover { background: rgba(255, 105, 180, 0.25) !important; box-shadow: 0 0 12px rgba(255, 105, 180, 0.3) !important; }
+.fs-like-btn.liked { background: rgba(255, 105, 180, 0.35) !important; border-color: #ff69b4 !important; color: #ff1493 !important; animation: heart-beat 0.6s ease-in-out; }
+@keyframes heart-beat { 0%, 100% { transform: scale(1); } 25% { transform: scale(1.2); } 50% { transform: scale(0.95); } 75% { transform: scale(1.1); } }
+
+/* 收藏按钮 */
+.fs-favorite-btn { background: rgba(255, 215, 0, 0.12) !important; border-color: rgba(255, 215, 0, 0.4) !important; color: #ffd700 !important; }
+.fs-favorite-btn:hover { background: rgba(255, 215, 0, 0.22) !important; box-shadow: 0 0 12px rgba(255, 215, 0, 0.25) !important; }
+.fs-favorite-btn.favorited { background: rgba(255, 215, 0, 0.3) !important; border-color: #ffd700 !important; color: #ffed4a !important; }
+
+/* 分享按钮 */
+.fs-share-btn { background: rgba(0, 210, 255, 0.1) !important; border-color: rgba(0, 210, 255, 0.4) !important; color: #00d2ff !important; }
+.fs-share-btn:hover { background: rgba(0, 210, 255, 0.2) !important; box-shadow: 0 0 12px rgba(0, 210, 255, 0.25) !important; }
+
+/* 截图按钮 */
+#fs-screenshot-btn { background: rgba(46, 204, 113, 0.1) !important; border-color: rgba(46, 204, 113, 0.4) !important; color: #2ecc71 !important; }
+#fs-screenshot-btn:hover { background: rgba(46, 204, 113, 0.2) !important; box-shadow: 0 0 12px rgba(46, 204, 113, 0.25) !important; }
+
+/* 点赞飘心动画 */
+.like-particle {
+    position: fixed; pointer-events: none; z-index: 10001;
+    font-size: 24px; animation: float-up 1.2s ease-out forwards;
+}
+@keyframes float-up {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-120px) scale(0.5); }
+}
+
+/* ========== 收藏夹面板 ========== */
+.favorites-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    z-index: 1990; opacity: 0; pointer-events: none;
+    transition: opacity 0.3s var(--ease);
+}
+.favorites-overlay.show { opacity: 1; pointer-events: auto; }
+
+.favorites-panel {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    width: 500px; max-width: 90vw; max-height: 80vh;
+    background: rgba(14, 14, 32, 0.98);
+    backdrop-filter: blur(30px) saturate(1.2);
+    -webkit-backdrop-filter: blur(30px) saturate(1.2);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: var(--radius-lg);
+    z-index: 1991;
+    display: flex; flex-direction: column;
+    box-shadow: 0 16px 64px rgba(0, 0, 0, 0.6), 0 0 32px rgba(255, 215, 0, 0.1);
+    opacity: 0; pointer-events: none;
+    transition: all 0.35s var(--ease);
+}
+.favorites-panel.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+
+.fp-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 20px; border-bottom: 1px solid rgba(255, 215, 0, 0.15);
+    flex-shrink: 0;
+}
+.fp-title { font-size: 16px; font-weight: 700; color: #ffd700; }
+.favorites-count { font-size: 12px; color: var(--text-3); margin-left: auto; }
+.fp-close {
+    background: transparent; border: none; color: var(--text-2);
+    font-size: 18px; cursor: pointer; padding: 2px 6px;
+    transition: color 0.15s, transform 0.15s;
+}
+.fp-close:hover { color: var(--text-1); transform: scale(1.1); }
+
+.favorites-list {
+    flex: 1; overflow-y: auto; padding: 12px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px; min-height: 200px;
+}
+.favorites-empty {
+    grid-column: 1 / -1; text-align: center; color: var(--text-3);
+    font-size: 13px; padding: 40px 20px; line-height: 1.6;
+}
+.favorite-item {
+    position: relative; border-radius: var(--radius-md);
+    overflow: hidden; border: 2px solid rgba(255, 215, 0, 0.2);
+    background: rgba(0, 0, 0, 0.3); transition: all 0.25s var(--ease);
+    cursor: pointer;
+}
+.favorite-item:hover { border-color: #ffd700; transform: scale(1.03); box-shadow: 0 4px 16px rgba(255, 215, 0, 0.2); }
+.favorite-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.favorite-item-info { padding: 8px; font-size: 11px; color: var(--text-2); }
+.favorite-item-actions { display: flex; gap: 4px; padding: 6px 8px; background: rgba(0, 0, 0, 0.8); }
+.favorite-item-actions button {
+    flex: 1; font-size: 10px; padding: 4px 6px; border-radius: 4px;
+    background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-2); cursor: pointer; transition: all 0.2s;
+}
+.favorite-item-actions button:hover { background: rgba(233, 69, 96, 0.2); border-color: rgba(233, 69, 96, 0.4); color: #fff; }
+.favorite-item-actions .delete-btn:hover { background: rgba(255, 69, 69, 0.2); border-color: rgba(255, 69, 69, 0.4); }
+
+/* ========== 侧边栏收藏与点赞 ========== */
+.likes-badge, .fav-badge {
+    font-size: 12px; padding: 3px 10px; border-radius: var(--radius-pill);
+    background: rgba(255, 255, 255, 0.06); color: var(--text-2);
+}
+.likes-badge { background: rgba(255, 105, 180, 0.15); color: #ff69b4; }
+.fav-badge { background: rgba(255, 215, 0, 0.15); color: #ffd700; }
+
+.likes-history-list {
+    max-height: 120px; overflow-y: auto; padding: 4px 0;
+    background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-sm);
+    margin-top: 4px;
+}
+.lh-empty { text-align: center; color: var(--text-3); font-size: 11px; padding: 8px; }
+.lh-item {
+    display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+    font-size: 11px; border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+.lh-item:last-child { border-bottom: none; }
+.lh-icon { font-size: 12px; }
+.lh-text { flex: 1; color: var(--text-2); }
+.lh-time { color: var(--text-3); font-size: 10px; }
+
+.favorites-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+    margin-top: 6px; max-height: 200px; overflow-y: auto;
+}
+.fav-thumb {
+    aspect-ratio: 1; border-radius: 6px; overflow: hidden;
+    border: 1px solid rgba(255, 215, 0, 0.2); cursor: pointer;
+    transition: all 0.2s;
+}
+.fav-thumb:hover { border-color: #ffd700; transform: scale(1.05); }
+.fav-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.fav-thumb-del { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; background: rgba(255, 69, 69, 0.8); border-radius: 50%; font-size: 9px; color: #fff; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+.fav-thumb:hover .fav-thumb-del { opacity: 1; }
+
+/* 隐藏的收藏面板 */
+#favorites-panel { display: none; }
+
+/* 分享链接提示 */
+.share-link-container {
+    margin-top: 10px; padding: 10px 14px;
+    background: rgba(0, 210, 255, 0.08);
+    border: 1px solid rgba(0, 210, 255, 0.2);
+    border-radius: var(--radius-md); display: flex; gap: 8px; align-items: center;
+}
+.share-link-container input {
+    flex: 1; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(0, 210, 255, 0.2);
+    border-radius: 6px; padding: 8px 10px; color: var(--text-1); font-size: 12px;
+    outline: none; min-width: 0;
+}
+.share-link-container input:focus { border-color: #00d2ff; }
+.share-link-container button {
+    padding: 8px 14px; background: rgba(0, 210, 255, 0.15);
+    border: 1px solid rgba(0, 210, 255, 0.3); color: #00d2ff;
+    border-radius: 6px; font-size: 12px; cursor: pointer; white-space: nowrap;
+    transition: all 0.2s;
+}
+.share-link-container button:hover { background: rgba(0, 210, 255, 0.25); }
+.share-link-container button.copied { background: rgba(46, 204, 113, 0.2); border-color: rgba(46, 204, 113, 0.4); color: #2ecc71; }
+
+/* 响应式 */
 @media (max-width: 640px) {
     body.fullscreen-mode .fullscreen-controls { bottom: 14px; padding: 8px 12px; border-radius: var(--radius-md); max-width: 95%; }
     .fullscreen-tools { gap: 5px; }
