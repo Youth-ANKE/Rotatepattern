@@ -34,11 +34,27 @@
         fps: 60
     };
 
+    // 背景动画类型映射
+    const BG_ANIMATION_MAP = {
+        none: null,
+        aurora: 'aurora',
+        gradientShift: 'gradientShift',
+        starField: 'starField',
+        nebula: 'nebula'
+    };
+
     // 动画循环控制
     let animationId = null;
     let autoRotate = true;
     let lastFrameTime = 0;
     let tickLastAngle = 0;
+    // 保存事件监听器引用，以便正确移除
+    const _onBeforeUnload = () => destroy();
+    const _onVisibilityChange = () => {
+        if (!document.hidden && !animationId) {
+            startAnimation();
+        }
+    };
 
     /**
      * 销毁应用（释放所有资源和事件监听）
@@ -51,21 +67,21 @@
         if (typeof AnimationController !== 'undefined') {
             AnimationController.setEnabled(false);
         }
+        // 清理背景动画
+        if (typeof BackgroundAnimation !== 'undefined') {
+            BackgroundAnimation.destroy();
+        }
         // 清理各模块
         CanvasRenderer.destroy();
         StateManager.destroy();
-        ParticleSystem.destroy();
-        window.removeEventListener('beforeunload', destroy);
-        document.removeEventListener('visibilitychange', _onVisibilityChange);
-    }
-
-    /**
-     * 可见性变化回调
-     */
-    function _onVisibilityChange() {
-        if (!document.hidden && !animationId) {
-            startAnimation();
+        if (typeof InputHandler !== 'undefined' && typeof InputHandler.destroy === 'function') {
+            InputHandler.destroy();
         }
+        if (typeof ParticleSystem.destroy === 'function') {
+            ParticleSystem.destroy();
+        }
+        window.removeEventListener('beforeunload', _onBeforeUnload);
+        document.removeEventListener('visibilitychange', _onVisibilityChange);
     }
 
     /**
@@ -78,6 +94,11 @@
         // 初始化动画控制器
         if (typeof AnimationController !== 'undefined') {
             AnimationController.init();
+        }
+        
+        // 初始化背景动画系统
+        if (typeof BackgroundAnimation !== 'undefined') {
+            BackgroundAnimation.init();
         }
         
         // 初始化各个模块
@@ -98,7 +119,7 @@
         document.addEventListener('visibilitychange', _onVisibilityChange);
 
         // 页面关闭时销毁
-        window.addEventListener('beforeunload', destroy);
+        window.addEventListener('beforeunload', _onBeforeUnload);
 
         // 显示欢迎提示
         setTimeout(() => {
@@ -125,6 +146,11 @@
 
             // 更新动画系统（呼吸/色彩变换/漂移/脉冲）
             updateAnimation(delta);
+
+            // 更新高级动画控制器（由主循环统一驱动，避免双重渲染）
+            if (typeof AnimationController !== 'undefined' && AnimationController.enabled) {
+                AnimationController.update();
+            }
 
             // 更新粒子
             ParticleSystem.update();

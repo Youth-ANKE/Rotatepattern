@@ -1,10 +1,10 @@
 /**
  * 动态动画控制器模块
  * 为万花筒添加呼吸缩放、颜色流动、中心漂移等艺术效果
+ * 注意：不使用独立的 requestAnimationFrame 循环，由 main.js 统一驱动 update()
  */
 const AnimationController = {
     enabled: false,
-    animationId: null,
     startTime: null,
 
     // === 动画参数 ===
@@ -46,41 +46,29 @@ const AnimationController = {
     },
 
     /**
-     * 启用/禁用动画
+     * 启用/禁用动画（不再启动独立 rAF 循环，由 main.js 统一驱动）
      */
     setEnabled(enabled) {
         this.enabled = enabled;
-        if (enabled && !this.animationId) {
-            this.start();
-        } else if (!enabled && this.animationId) {
-            this.stop();
+        if (enabled) {
+            // 计算当前变换并标记重绘
+            const transforms = this.getCurrentTransforms();
+            StateManager.setState({ _animationTransforms: transforms });
+            CanvasRenderer.needRedrawOffscreen = true;
+        } else {
+            StateManager.setState({ _animationTransforms: null });
         }
     },
 
     /**
-     * 开始动画循环
+     * 每帧更新（由 main.js 动画循环调用，避免双重渲染）
      */
-    start() {
-        if (this.animationId) return;
-        
-        const loop = () => {
-            if (!this.enabled) return;
-            this.update();
-            this.animationId = requestAnimationFrame(loop);
-        };
-        loop();
-        console.log('[AnimationController] 动画已启动');
-    },
+    update() {
+        if (!this.enabled) return;
 
-    /**
-     * 停止动画循环
-     */
-    stop() {
-        if (this.animationId) {
-            cancelAnimationFrame(this.animationId);
-            this.animationId = null;
-        }
-        console.log('[AnimationController] 动画已停止');
+        const transforms = this.getCurrentTransforms();
+        StateManager.setState({ _animationTransforms: transforms });
+        CanvasRenderer.needRedrawOffscreen = true;
     },
 
     /**
@@ -88,25 +76,6 @@ const AnimationController = {
      */
     getTime() {
         return (Date.now() - this.startTime) / 1000;
-    },
-
-    /**
-     * 更新动画状态并触发重绘
-     */
-    update() {
-        if (!this.enabled) return;
-        
-        // 获取当前变换
-        const transforms = this.getCurrentTransforms();
-        
-        // 应用到 StateManager
-        StateManager.setState({
-            _animationTransforms: transforms
-        });
-        
-        // 标记需要重绘（不使用离屏缓存）
-        CanvasRenderer.needRedrawOffscreen = true;
-        CanvasRenderer.render();
     },
 
     /**

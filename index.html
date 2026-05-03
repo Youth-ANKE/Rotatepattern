@@ -11,304 +11,324 @@
     <meta name="application-name" content="旋转万花筒绘图工具">
     <meta name="description" content="创意万花筒绘图工具，支持对称绘画、粒子特效、音乐生成">
     <meta name="apple-touch-fullscreen" content="yes">
-    <!-- iOS 启动图 -->
     <link rel="apple-touch-icon" href="public/icons/icon-192.svg">
     <link rel="apple-touch-startup-image" href="public/icons/icon-512.svg">
     <title>旋转万花筒绘图工具</title>
     <link rel="icon" type="image/svg+xml" href="public/icons/favicon.svg">
     <link rel="manifest" href="public/manifest.json">
-    <link rel="stylesheet" href="styles.css?v=2026050302">
+    <link rel="stylesheet" href="styles.css?v=2026050304">
 </head>
 <body>
     <!-- Toast 提示 -->
     <div id="toast" class="toast"></div>
 
-    <!-- 顶部工具栏 -->
+    <!-- 精简工具条 -->
     <div class="toolbar" id="main-toolbar">
-        <!-- 基础工具组 -->
-        <div class="toolbar-group">
-            <span class="toolbar-label">笔触</span>
+        <div class="toolbar-group tg-color">
             <input type="color" id="stroke-color" value="#e94560" title="笔触颜色">
             <input type="range" id="stroke-width" min="1" max="30" value="5" title="线条宽度">
+            <input type="color" id="bg-color" value="#1a1a2e" title="背景色">
         </div>
-
-        <div class="toolbar-group">
-            <span class="toolbar-label">背景</span>
-            <input type="color" id="bg-color" value="#1a1a2e" title="画布背景色">
-        </div>
-
-        <div class="toolbar-group">
-            <span class="toolbar-label">对称</span>
+        <div class="toolbar-group tg-symmetry">
             <select id="symmetry-mode">
-                <option value="rotational">旋转对称</option>
-                <option value="mirror">镜像对称</option>
-                <option value="spiral">螺旋对称</option>
+                <option value="rotational">旋转</option>
+                <option value="mirror">镜像</option>
+                <option value="spiral">螺旋</option>
             </select>
             <input type="range" id="symmetry-count" min="2" max="24" value="6" title="对称数">
-            <span id="symmetry-count-label" style="font-size:13px; min-width:20px;">6</span>
+            <span id="symmetry-count-label" class="rv">6</span>
         </div>
-
-        <!-- 螺旋缩放控制（默认隐藏） -->
         <div class="toolbar-group" id="spiral-scale-group" style="display:none;">
-            <span class="toolbar-label">螺旋缩放</span>
-            <input type="range" id="spiral-scale" min="-50" max="50" value="20" title="螺旋缩放程度">
+            <span class="tl">螺旋</span>
+            <input type="range" id="spiral-scale" min="-50" max="50" value="20" title="螺旋缩放">
         </div>
-
-        <div class="toolbar-group">
-            <span class="toolbar-label">旋转</span>
+        <div class="toolbar-group tg-rotate">
             <input type="range" id="rotation-speed" min="0" max="100" value="20" title="旋转速度">
-            <span id="rotation-speed-label" style="font-size:13px; min-width:20px;">20</span>
-            <button id="auto-rotate-toggle" class="active" title="暂停/恢复自动旋转 (Space)">▶ 自动</button>
+            <span id="rotation-speed-label" class="rv">20</span>
+            <button id="auto-rotate-toggle" class="active" title="暂停/恢复自动旋转 (Space)">▶</button>
         </div>
-
-        <div class="toolbar-group">
-            <span class="toolbar-label">拖尾</span>
-            <button id="trail-toggle" title="拖尾/淡出模式 (T)">🌊 拖尾</button>
-        </div>
-
-        <!-- 撤销/重做/清空 -->
-        <div class="toolbar-group">
+        <div class="toolbar-group tg-actions">
+            <button id="trail-toggle" title="拖尾/淡出 (T)">🌊</button>
             <button id="undo-btn" title="撤销 (Ctrl+Z)" disabled>↩</button>
             <button id="redo-btn" title="重做 (Ctrl+Y)" disabled>↪</button>
-            <button id="clear-canvas" title="清空画布 (C)">🗑 清空</button>
+            <button id="clear-canvas" title="清空 (C)">🗑</button>
+            <button id="fullscreen-toggle" title="全屏 (F)">⛶</button>
         </div>
+        <div class="toolbar-spacer"></div>
+        <button class="settings-toggle" id="settings-toggle">⚙</button>
+    </div>
 
-        <!-- 全屏按钮 -->
-        <div class="toolbar-group">
-            <button id="fullscreen-toggle" class="fullscreen-btn" title="全屏画布 (F)">⛶ 全屏</button>
+    <!-- 高级设置面板（侧边抽屉） -->
+    <div class="settings-overlay" id="settings-overlay"></div>
+    <div class="settings-panel" id="advanced-settings">
+        <div class="sp-header">
+            <span class="sp-title">高级设置</span>
+            <button class="sp-close" id="sp-close">✕</button>
         </div>
-
-        <!-- 高级设置按钮 -->
-        <button class="settings-toggle" id="settings-toggle">⚙️ 高级设置</button>
-
-        <!-- 高级设置面板 -->
-        <div class="advanced-settings" id="advanced-settings">
-            <!-- 画笔类型与效果 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">画笔</span>
-                <select id="brush-type">
-                    <option value="solid">实线</option>
-                    <option value="dashed">虚线</option>
-                    <option value="dotted">点线</option>
-                    <option value="spray">喷枪</option>
-                </select>
-                <button id="glow-toggle" title="发光效果 (G)">✨ 发光</button>
-                <input type="color" id="glow-color" value="#e94560" title="发光颜色" style="width:30px;height:26px;">
-                <input type="range" id="glow-blur" min="2" max="30" value="10" title="发光强度" style="width:60px;">
-                <button id="rainbow-toggle" title="彩虹模式">🌈 彩虹</button>
-            </div>
-
-            <!-- 渐变控制 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">渐变</span>
-                <button id="gradient-toggle" title="渐变画笔">🎨 渐变</button>
-                <input type="color" id="gradient-from" value="#e94560" title="渐变起始色" style="width:30px;height:26px;">
-                <input type="color" id="gradient-to" value="#0f3460" title="渐变结束色" style="width:30px;height:26px;">
-            </div>
-
-            <!-- 混合模式 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">混合</span>
-                <select id="blend-mode">
-                    <option value="normal">正常</option>
-                    <option value="multiply">正片叠底</option>
-                    <option value="screen">滤色</option>
-                    <option value="overlay">叠加</option>
-                    <option value="soft-light">柔光</option>
-                    <option value="hard-light">强光</option>
-                    <option value="color-dodge">颜色减淡</option>
-                    <option value="color-burn">颜色加深</option>
-                    <option value="difference">差值</option>
-                    <option value="exclusion">排除</option>
-                    <option value="lighter">变亮</option>
-                </select>
-            </div>
-
-            <!-- 动态动画控制 -->
-            <div class="toolbar-group" style="border-top:1px solid rgba(255,255,255,0.1); padding-top:10px; margin-top:10px;">
-                <span class="toolbar-label">✨ 动画</span>
-                <button id="animation-toggle" title="启动/停止动态动画 (A)">▶ 动画</button>
-            </div>
-            <div class="toolbar-group" id="animation-controls" style="flex-wrap: wrap;">
-                <button id="preset-breathing" title="呼吸效果" class="preset-btn">🫁 呼吸</button>
-                <button id="preset-floating" title="漂浮效果" class="preset-btn">🪶 漂浮</button>
-                <button id="preset-swirl" title="漩涡效果" class="preset-btn">🌀 漩涡</button>
-                <button id="preset-psychedelic" title="迷幻效果" class="preset-btn">🎵 迷幻</button>
-                <button id="random-animation" title="随机动画参数" class="preset-btn">🎲 随机</button>
-            </div>
-            <div class="toolbar-group" id="animation-sliders" style="flex-wrap: wrap;">
-                <label style="font-size:12px; min-width:40px;">缩放</label>
-                <input type="range" id="anim-scale-speed" min="0.1" max="1.5" value="0.5" step="0.1" style="width:70px;">
-                <input type="range" id="anim-scale-amp" min="0.05" max="0.3" value="0.1" step="0.01" style="width:70px;">
-                <label style="font-size:12px; min-width:40px;">颜色</label>
-                <input type="range" id="anim-color-speed" min="0.1" max="1.0" value="0.3" step="0.1" style="width:70px;">
-                <input type="range" id="anim-color-amp" min="10" max="120" value="30" step="5" style="width:70px;">
-                <label style="font-size:12px; min-width:40px;">漂移</label>
-                <input type="range" id="anim-drift-speed" min="0.05" max="0.5" value="0.2" step="0.05" style="width:70px;">
-                <input type="range" id="anim-drift-amp" min="5" max="50" value="20" step="5" style="width:70px;">
-                <label style="font-size:12px; min-width:40px;">旋转</label>
-                <input type="range" id="anim-rot-speed" min="-0.5" max="0.5" value="0" step="0.05" style="width:70px;">
-            </div>
-
-            <!-- 配色方案/材质色板 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">色板</span>
-                <select id="material-palette">
-                    <option value="none">关闭</option>
-                    <option value="aurora">极光炫彩</option>
-                    <option value="lava">熔岩烈焰</option>
-                    <option value="deepsea">深海幽蓝</option>
-                    <option value="rainbowCandy">彩虹糖果</option>
-                    <option value="starryNight">星夜璀璨</option>
-                    <option value="neon">霓虹赛博</option>
-                    <option value="candy">糖果风暴</option>
-                    <option value="retro">复古风情</option>
-                    <option value="cyber">电子赛博</option>
-                    <option value="ink">水墨丹青</option>
-                </select>
-                <input type="range" id="color-dither" min="0" max="50" value="0" title="颜色抖动" style="width:60px;">
-                <span style="font-size:12px;color:#889;">抖动</span>
-            </div>
-
-            <!-- 动态动画控制 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">动画</span>
-                <select id="animation-mode">
-                    <option value="none">关闭</option>
-                    <option value="breathing">🌬 呼吸</option>
-                    <option value="colorShift">🎨 色彩流</option>
-                    <option value="rotate">🔄 自转</option>
-                    <option value="drift">🌊 漂移</option>
-                    <option value="pulse">💫 脉冲</option>
-                </select>
-                <input type="range" id="animation-speed" min="0.1" max="5.0" step="0.1" value="1.0" title="动画速度" style="width:60px;">
-                <span style="font-size:12px;color:#889;">速度</span>
-            </div>
-
-            <!-- 密度控制 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">密度</span>
-                <input type="range" id="density-slider" min="0.1" max="1.0" step="0.1" value="0.5" title="图案密度" style="width:80px;">
-                <span id="density-value" style="font-size:13px;min-width:20px;">0.5</span>
-                <button id="reset-noise-seed" title="重置噪声种子">🎲 新种子</button>
-            </div>
-
-            <!-- 画笔预设 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">预设</span>
-                <button class="preset-btn" data-preset="neon">霓虹</button>
-                <button class="preset-btn" data-preset="cyber">赛博</button>
-                <button class="preset-btn" data-preset="nature">自然</button>
-                <button class="preset-btn" data-preset="fire">火焰</button>
-                <button class="preset-btn" data-preset="rainbow">彩虹</button>
-            </div>
-
-            <!-- 粒子效果 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">粒子</span>
-                <button id="particle-toggle" class="active" title="绘制时产生粒子特效">✨ 粒子</button>
-                <select id="particle-type">
-                    <option value="spark">🔥 火花</option>
-                    <option value="star">⭐ 星光</option>
-                    <option value="rainbow">🌈 彩虹粒</option>
-                    <option value="butterfly">🦋 蝴蝶</option>
-                    <option value="bubble">🫧 泡泡</option>
-                    <option value="snow">❄️ 雪花</option>
-                </select>
-            </div>
-
-            <!-- 音乐生成 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">绘图音</span>
-                <button id="music-gen-toggle" class="active" title="绘制时生成音符">🎹 绘图音</button>
-                <select id="music-theme">
-                    <option value="aurora">🌊 极光</option>
-                    <option value="cyber">🎸 赛博</option>
-                    <option value="forest">🌿 森林</option>
-                    <option value="dream">🌙 梦境</option>
-                    <option value="temple">🏯 古风</option>
-                    <option value="space">🚀 太空</option>
-                    <option value="jazz">🎺 爵士</option>
-                    <option value="ocean">🌊 海洋</option>
-                </select>
-                <div class="volume-group">
-                    <span style="font-size:12px;">🔊</span>
-                    <input type="range" id="music-gen-volume" min="0" max="100" value="50">
-                </div>
-            </div>
-
-            <!-- 音效 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">音效</span>
-                <button id="tick-toggle" class="active" title="旋转扇区滴答声">🔔 滴答</button>
-                <div class="volume-group">
-                    <span style="font-size:12px;">🔊</span>
-                    <input type="range" id="tick-volume" min="0" max="100" value="30">
-                </div>
-            </div>
-
-            <!-- 背景音乐 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">内置音乐</span>
-                <button id="music-toggle" title="内置背景音乐 (M)">🎵 背景音乐</button>
-                <div class="volume-group">
-                    <span style="font-size:12px;">🎵</span>
-                    <input type="range" id="music-volume" min="0" max="100" value="50">
-                </div>
-            </div>
-
-            <!-- 在线音乐 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">在线音乐</span>
-                <button id="online-music-toggle" title="播放在线音乐">🌐 在线音乐</button>
-                <div class="volume-group">
-                    <span style="font-size:12px;">🔊</span>
-                    <input type="range" id="online-music-volume" min="0" max="100" value="50">
-                </div>
-                <div id="online-music-info" style="display:none;font-size:12px;color:#8899aa;margin-top:4px;width:100%;">
-                    <span id="online-music-title"></span>
-                    <span id="online-music-status" style="color:#00d2ff;margin-left:6px;"></span>
-                </div>
-                <!-- 播放模式切换 -->
-                <div id="playlist-controls" style="display:none;margin-top:6px;width:100%;">
-                    <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
-                        <button id="prev-track-btn" class="small-btn" title="上一首">⏮</button>
-                        <button id="next-track-btn" class="small-btn" title="下一首">⏭</button>
-                        <select id="play-mode-select" style="font-size:11px;padding:2px 4px;background:#1a1a3e;color:#ccc;border:1px solid #333;border-radius:4px;">
-                            <option value="random">随机播放</option>
-                            <option value="sequential">顺序播放</option>
-                            <option value="loop">单曲循环</option>
+        <div class="sp-body">
+            <!-- 画笔 -->
+            <div class="sp-section">
+                <div class="sp-section-head" data-toggle="sec-brush">🖌 画笔 <span class="sp-arrow">▾</span></div>
+                <div class="sp-section-body" id="sec-brush">
+                    <div class="sp-field">
+                        <label>类型</label>
+                        <select id="brush-type">
+                            <option value="solid">实线</option>
+                            <option value="dashed">虚线</option>
+                            <option value="dotted">点线</option>
+                            <option value="spray">喷枪</option>
+                        </select>
+                    </div>
+                    <div class="sp-field">
+                        <label>发光</label>
+                        <button id="glow-toggle" title="发光效果 (G)">✨ 发光</button>
+                    </div>
+                    <div class="sp-field sp-indent">
+                        <label>颜色</label>
+                        <input type="color" id="glow-color" value="#e94560">
+                    </div>
+                    <div class="sp-field sp-indent">
+                        <label>强度</label>
+                        <input type="range" id="glow-blur" min="2" max="30" value="10">
+                    </div>
+                    <div class="sp-field">
+                        <label>彩虹</label>
+                        <button id="rainbow-toggle">🌈 彩虹</button>
+                    </div>
+                    <div class="sp-field">
+                        <label>渐变</label>
+                        <button id="gradient-toggle">🎨 渐变</button>
+                    </div>
+                    <div class="sp-field sp-indent">
+                        <label>起→终</label>
+                        <input type="color" id="gradient-from" value="#e94560">
+                        <input type="color" id="gradient-to" value="#0f3460">
+                    </div>
+                    <div class="sp-field">
+                        <label>混合</label>
+                        <select id="blend-mode">
+                            <option value="normal">正常</option>
+                            <option value="multiply">正片叠底</option>
+                            <option value="screen">滤色</option>
+                            <option value="overlay">叠加</option>
+                            <option value="soft-light">柔光</option>
+                            <option value="hard-light">强光</option>
+                            <option value="color-dodge">颜色减淡</option>
+                            <option value="color-burn">颜色加深</option>
+                            <option value="difference">差值</option>
+                            <option value="exclusion">排除</option>
+                            <option value="lighter">变亮</option>
                         </select>
                     </div>
                 </div>
             </div>
 
-            <!-- 音效试听面板 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">音效试听</span>
-                <div id="sound-effects-container" style="display:flex;flex-wrap:wrap;gap:3px;width:100%;">
-                    <span style="font-size:11px;color:#667;width:100%;">点击播放音效</span>
+            <!-- 色板 -->
+            <div class="sp-section">
+                <div class="sp-section-head" data-toggle="sec-palette">🎨 色板 <span class="sp-arrow">▾</span></div>
+                <div class="sp-section-body" id="sec-palette">
+                    <div class="sp-field">
+                        <label>配色</label>
+                        <select id="material-palette">
+                            <option value="none">关闭</option>
+                            <option value="aurora">极光炫彩</option>
+                            <option value="lava">熔岩烈焰</option>
+                            <option value="deepsea">深海幽蓝</option>
+                            <option value="rainbowCandy">彩虹糖果</option>
+                            <option value="starryNight">星夜璀璨</option>
+                            <option value="neon">霓虹赛博</option>
+                            <option value="candy">糖果风暴</option>
+                            <option value="retro">复古风情</option>
+                            <option value="cyber">电子赛博</option>
+                            <option value="ink">水墨丹青</option>
+                        </select>
+                    </div>
+                    <div class="sp-field">
+                        <label>抖动</label>
+                        <input type="range" id="color-dither" min="0" max="50" value="0">
+                    </div>
+                    <div class="sp-field">
+                        <label>预设</label>
+                        <div class="sp-presets">
+                            <button class="preset-btn" data-preset="neon">霓虹</button>
+                            <button class="preset-btn" data-preset="cyber">赛博</button>
+                            <button class="preset-btn" data-preset="nature">自然</button>
+                            <button class="preset-btn" data-preset="fire">火焰</button>
+                            <button class="preset-btn" data-preset="rainbow">彩虹</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- 保存/导出 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">导出</span>
-                <button id="save-png" title="导出为PNG图片 (S)">PNG</button>
-                <button id="save-jpg" title="导出为JPG图片">JPG</button>
-                <button id="save-svg" title="导出为SVG矢量图">SVG</button>
-                <button id="save-project" title="保存项目文件（JSON）">💾 项目</button>
-                <label class="file-upload-label" title="导入项目文件">
-                    📂 导入
-                    <input type="file" id="load-project" accept=".json" style="display:none;">
-                </label>
+            <!-- 动画 -->
+            <div class="sp-section">
+                <div class="sp-section-head" data-toggle="sec-anim">✨ 动画 <span class="sp-arrow">▾</span></div>
+                <div class="sp-section-body" id="sec-anim">
+                    <div class="sp-field">
+                        <label>开关</label>
+                        <button id="animation-toggle" title="启动/停止动态动画 (A)">▶ 动画</button>
+                    </div>
+                    <div class="sp-field">
+                        <label>模式</label>
+                        <select id="animation-mode">
+                            <option value="none">关闭</option>
+                            <option value="breathing">🌬 呼吸</option>
+                            <option value="colorShift">🎨 色彩流</option>
+                            <option value="rotate">🔄 自转</option>
+                            <option value="drift">🌊 漂移</option>
+                            <option value="pulse">💫 脉冲</option>
+                        </select>
+                    </div>
+                    <div class="sp-field">
+                        <label>速度</label>
+                        <input type="range" id="animation-speed" min="0.1" max="5.0" step="0.1" value="1.0">
+                    </div>
+                    <div class="sp-field">
+                        <label>预设</label>
+                        <div class="sp-presets">
+                            <button id="preset-breathing" class="preset-btn">🫁 呼吸</button>
+                            <button id="preset-floating" class="preset-btn">🪶 漂浮</button>
+                            <button id="preset-swirl" class="preset-btn">🌀 漩涡</button>
+                            <button id="preset-psychedelic" class="preset-btn">🎵 迷幻</button>
+                            <button id="random-animation" class="preset-btn">🎲 随机</button>
+                        </div>
+                    </div>
+                    <div class="sp-field">
+                        <label>缩放</label>
+                        <input type="range" id="anim-scale-speed" min="0.1" max="1.5" value="0.5" step="0.1">
+                        <input type="range" id="anim-scale-amp" min="0.05" max="0.3" value="0.1" step="0.01">
+                    </div>
+                    <div class="sp-field">
+                        <label>颜色</label>
+                        <input type="range" id="anim-color-speed" min="0.1" max="1.0" value="0.3" step="0.1">
+                        <input type="range" id="anim-color-amp" min="10" max="120" value="30" step="5">
+                    </div>
+                    <div class="sp-field">
+                        <label>漂移</label>
+                        <input type="range" id="anim-drift-speed" min="0.05" max="0.5" value="0.2" step="0.05">
+                        <input type="range" id="anim-drift-amp" min="5" max="50" value="20" step="5">
+                    </div>
+                    <div class="sp-field">
+                        <label>旋转</label>
+                        <input type="range" id="anim-rot-speed" min="-0.5" max="0.5" value="0" step="0.05">
+                    </div>
+                    <div class="sp-field">
+                        <label>密度</label>
+                        <input type="range" id="density-slider" min="0.1" max="1.0" step="0.1" value="0.5">
+                        <span id="density-value" class="rv">0.5</span>
+                    </div>
+                    <div class="sp-field">
+                        <label></label>
+                        <button id="reset-noise-seed">🎲 新种子</button>
+                    </div>
+                </div>
             </div>
 
-            <!-- 随机生成 -->
-            <div class="toolbar-group">
-                <span class="toolbar-label">随机</span>
-                <button id="random-generate" title="随机生成配置 (R)">🎲 随机生成</button>
-                <button id="screenshot-btn" title="将当前画面截图加入画廊">📷 截图</button>
+            <!-- 粒子 -->
+            <div class="sp-section">
+                <div class="sp-section-head" data-toggle="sec-particle">💫 粒子 <span class="sp-arrow">▾</span></div>
+                <div class="sp-section-body" id="sec-particle">
+                    <div class="sp-field">
+                        <label>开关</label>
+                        <button id="particle-toggle" class="active">✨ 粒子</button>
+                    </div>
+                    <div class="sp-field">
+                        <label>类型</label>
+                        <select id="particle-type">
+                            <option value="spark">🔥 火花</option>
+                            <option value="star">⭐ 星光</option>
+                            <option value="rainbow">🌈 彩虹粒</option>
+                            <option value="butterfly">🦋 蝴蝶</option>
+                            <option value="bubble">🫧 泡泡</option>
+                            <option value="snow">❄️ 雪花</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 音频 -->
+            <div class="sp-section">
+                <div class="sp-section-head" data-toggle="sec-audio">🎵 音频 <span class="sp-arrow">▾</span></div>
+                <div class="sp-section-body" id="sec-audio">
+                    <div class="sp-field">
+                        <label>绘图音</label>
+                        <button id="music-gen-toggle" class="active">🎹 开启</button>
+                        <select id="music-theme">
+                            <option value="aurora">🌊 极光</option>
+                            <option value="cyber">🎸 赛博</option>
+                            <option value="forest">🌿 森林</option>
+                            <option value="dream">🌙 梦境</option>
+                            <option value="temple">🏯 古风</option>
+                            <option value="space">🚀 太空</option>
+                            <option value="jazz">🎺 爵士</option>
+                            <option value="ocean">🌊 海洋</option>
+                        </select>
+                    </div>
+                    <div class="sp-field sp-indent">
+                        <label>音量</label>
+                        <input type="range" id="music-gen-volume" min="0" max="100" value="50">
+                    </div>
+                    <div class="sp-field">
+                        <label>滴答</label>
+                        <button id="tick-toggle" class="active">🔔 开启</button>
+                        <input type="range" id="tick-volume" min="0" max="100" value="30">
+                    </div>
+                    <div class="sp-field">
+                        <label>背景音乐</label>
+                        <button id="music-toggle">🎵 播放</button>
+                        <input type="range" id="music-volume" min="0" max="100" value="50">
+                    </div>
+                    <div class="sp-field">
+                        <label>在线音乐</label>
+                        <button id="online-music-toggle">🌐 播放</button>
+                        <input type="range" id="online-music-volume" min="0" max="100" value="50">
+                    </div>
+                    <div id="online-music-info" class="music-info" style="display:none;">
+                        <span id="online-music-title"></span>
+                        <span id="online-music-status"></span>
+                    </div>
+                    <div id="playlist-controls" class="playlist-controls" style="display:none;">
+                        <button id="prev-track-btn" class="small-btn" title="上一首">⏮</button>
+                        <button id="next-track-btn" class="small-btn" title="下一首">⏭</button>
+                        <select id="play-mode-select">
+                            <option value="random">随机播放</option>
+                            <option value="sequential">顺序播放</option>
+                            <option value="loop">单曲循环</option>
+                        </select>
+                    </div>
+                    <div class="sp-field">
+                        <label>音效试听</label>
+                        <div id="sound-effects-container" class="sound-effects-grid">
+                            <span class="hint-text">点击播放</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 导出 -->
+            <div class="sp-section">
+                <div class="sp-section-head" data-toggle="sec-export">💾 导出 <span class="sp-arrow">▾</span></div>
+                <div class="sp-section-body" id="sec-export">
+                    <div class="sp-field">
+                        <label>格式</label>
+                        <button id="save-png" title="导出PNG (S)">PNG</button>
+                        <button id="save-jpg">JPG</button>
+                        <button id="save-svg">SVG</button>
+                    </div>
+                    <div class="sp-field">
+                        <label>项目</label>
+                        <button id="save-project">💾 保存</button>
+                        <label class="file-upload-label" title="导入项目">
+                            📂 导入
+                            <input type="file" id="load-project" accept=".json" style="display:none;">
+                        </label>
+                    </div>
+                    <div class="sp-field">
+                        <label>其他</label>
+                        <button id="random-generate" title="随机配置 (R)">🎲 随机生成</button>
+                        <button id="screenshot-btn">📷 截图</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -316,7 +336,6 @@
     <!-- 画布区域 -->
     <div class="canvas-container" id="canvas-container">
         <canvas id="kaleidoscope-canvas"></canvas>
-        <!-- 全屏模式下的控制栏 -->
         <div class="fullscreen-controls" id="fullscreen-controls">
             <div class="fullscreen-tools">
                 <input type="color" id="fs-stroke-color" value="#e94560" title="笔触颜色">
@@ -345,28 +364,26 @@
         <span>快捷键: ↑↓对称数 | ←→速度 | Space暂停 | C清空 | T拖尾 | M音乐 | R随机 | G发光 | F全屏 | 1-4画笔 | Ctrl+Z撤销 | Ctrl+Y重做</span>
     </div>
 
-    <!-- 工具函数（最先引入） -->
+    <!-- 工具函数 -->
     <script src="utils/math-utils.js?v=2026050302"></script>
     <script src="utils/storage-utils.js?v=2026050302"></script>
     <script src="utils/object-pool.js?v=2026050302"></script>
     <script src="utils/canvas-cache.js?v=2026050302"></script>
     <script src="utils/error-handler.js?v=2026050302"></script>
-    <!-- 模块（按依赖顺序引入） -->
     <script src="modules/state-manager.js?v=2026050302"></script>
     <script src="modules/audio-engine.js?v=2026050302"></script>
     <script src="modules/particle-system.js?v=2026050302"></script>
-    <!-- 高级生成器模块 -->
     <script src="modules/noise-generator.js?v=2026050302"></script>
     <script src="modules/color-palette.js?v=2026050302"></script>
     <script src="modules/advanced-generators.js?v=2026050302"></script>
     <script src="modules/random-generator.js?v=2026050304"></script>
     <script src="modules/canvas-renderer.js?v=2026050302"></script>
     <script src="modules/animation-controller.js?v=2026050302"></script>
+    <script src="modules/background-animation.js?v=2026050304"></script>
     <script src="modules/input-handler.js?v=2026050302"></script>
     <script src="modules/keyboard-handler.js?v=2026050302"></script>
     <script src="modules/ui-controller.js?v=2026050302"></script>
     <script src="modules/fullscreen-controller.js?v=2026050302"></script>
-    <!-- 应用入口（最后引入） -->
-    <script src="main.js?v=2026050302"></script>
+    <script src="main.js?v=2026050304"></script>
 </body>
 </html>

@@ -1,12 +1,15 @@
 /**
- * 随机艺术生成器模块 V2.0
+ * 随机艺术生成器模块 V3.0 - 增强版
  * 
- * 升级内容：
- * - 45套高级配色方案（含渐变背景、金属质感、霓虹光效）
- * - 18种图案生成器（新增黄金螺旋、曼陀罗、伊斯兰几何、分形树等）
- * - 多层叠加生成（每次生成2~3层互补图层）
- * - 装饰元素系统（边框、角花、散点、光环）
- * - 智能参数组合（色相偏移、明度变化、透明度层次）
+ * V3.0 升级内容：
+ * - 强制复杂度阈值（彻底解决纯背景问题）
+ * - 图案-对称智能匹配
+ * - 填充型图案生成器
+ * - 纹理图案层
+ * - 动态背景效果
+ * - 高级颜色系统（Kuler/Adobe Color）
+ * - 智能重试机制
+ * - 预设"惊艳"组合库
  * 
  * 每次点击 R 都是一幅独一无二的艺术品！
  */
@@ -15,6 +18,64 @@ const RandomGenerator = {
     _lastApplyTime: 0,
     _applyDebounce: 150, // 最小点击间隔（毫秒）
     _isApplying: false,
+
+    // ===== 复杂度阈值配置 =====
+    _MIN_STROKES: 15,      // 最小笔画数
+    _MIN_POINTS: 50,      // 最小总点数
+
+    // ===== 图案-对称智能匹配表 =====
+    _PATTERN_SYMMETRY_MAP: {
+        mandala: [6, 8, 12],
+        goldenSpiral: [4, 6],
+        islamicGeo: [8, 12, 16],
+        lissajous: [4, 6, 8],
+        roseCurve: [5, 7, 10],
+        fractalSnowflake: [6],
+        moirePattern: [8, 12, 16],
+        dnaHelix: [4, 6],
+        strangeAttractor: [4, 6, 8],
+        fractalTree: [3, 4, 5],
+        celestialOrbits: [6, 8, 12],
+        waveInterference: [4, 6, 8],
+        laceFiligree: [8, 12, 16],
+        tessellation: [4, 6, 8],
+        zentangle: [4, 8],
+        radialBurst: [6, 8, 10, 12],
+        flowerPetals: [5, 6, 8, 10],
+        spiralWave: [4, 6, 8],
+        concentricRings: [4, 6, 8],
+        zigzagRays: [6, 8, 12],
+        abstractScribble: [3, 4, 5, 6],
+        starburst: [6, 8, 12, 16],
+        feathers: [6, 8, 12],
+        ripples: [4, 6, 8],
+        // 高级生成器
+        fluidFlow: [6, 8, 12],
+        terrainContour: [4, 6, 8],
+        evolutionPattern: [6, 8],
+        lavaLamp: [4, 6],
+        polarPattern: [6, 8, 12],
+        nebulaCloud: [6, 8],
+    },
+
+    // ===== 预设"惊艳"组合库 =====
+    _MASTERPIECE_PRESETS: [
+        { name: '银河漩涡', palette: '暗物质', patterns: ['spiralWave', 'moirePattern'], symmetry: 8, symmetryMode: 'spiral', particleType: 'star', animation: 'swirl', bgAnimation: 'nebula' },
+        { name: '极光之舞', palette: '极光之巅', patterns: ['waveInterference', 'ripples'], symmetry: 12, symmetryMode: 'rotational', particleType: 'firefly', animation: 'breathing', bgAnimation: 'aurora' },
+        { name: '星际迷航', palette: '脉冲星', patterns: ['celestialOrbits', 'lissajous'], symmetry: 6, symmetryMode: 'mirror', particleType: 'star', animation: 'pulse', bgAnimation: 'starField' },
+        { name: '几何秘境', palette: '伊斯兰几何', patterns: ['islamicGeo', 'tessellation'], symmetry: 12, symmetryMode: 'rotational', particleType: 'spark', animation: 'rotate', bgAnimation: 'gradientShift' },
+        { name: '自然之魂', palette: '森林秘境', patterns: ['fractalTree', 'feathers'], symmetry: 5, symmetryMode: 'spiralMirror', particleType: 'butterfly', animation: 'floating', bgAnimation: 'aurora' },
+        { name: '霓虹梦境', palette: '赛博之巅', patterns: ['strangeAttractor', 'lissajous'], symmetry: 6, symmetryMode: 'spiral', particleType: 'spark', animation: 'psychedelic', bgAnimation: 'nebula' },
+        { name: '冰晶绽放', palette: '冬雪', patterns: ['fractalSnowflake', 'laceFiligree'], symmetry: 6, symmetryMode: 'rotational', particleType: 'snow', animation: 'breathing', bgAnimation: 'gradientShift' },
+        { name: '黄金比例', palette: '鎏金岁月', patterns: ['goldenSpiral', 'roseCurve'], symmetry: 6, symmetryMode: 'mirror', particleType: 'spark', animation: 'pulse', bgAnimation: 'starField' },
+        { name: '深海探索', palette: '深海幽蓝', patterns: ['mandala', 'ripples'], symmetry: 8, symmetryMode: 'spiralMirror', particleType: 'bubble', animation: 'drift', bgAnimation: 'nebula' },
+        { name: '热带风情', palette: '珊瑚秘境', patterns: ['flowerPetals', 'abstractScribble'], symmetry: 8, symmetryMode: 'interlockMirror', particleType: 'butterfly', animation: 'floating', bgAnimation: 'aurora' },
+        { name: '沙漠星空', palette: '创世之柱', patterns: ['starburst', 'moirePattern'], symmetry: 12, symmetryMode: 'rotational', particleType: 'star', animation: 'pulse', bgAnimation: 'starField' },
+        { name: '机械美学', palette: '白银纪元', patterns: ['lissajous', 'concentricRings'], symmetry: 8, symmetryMode: 'mirror', particleType: 'spark', animation: 'rotate', bgAnimation: 'gradientShift' },
+        { name: '生命之树', palette: '森林秘境', patterns: ['fractalTree', 'dnaHelix'], symmetry: 4, symmetryMode: 'spiral', particleType: 'firefly', animation: 'breathing', bgAnimation: 'aurora' },
+        { name: '数学之美', palette: '全息梦境', patterns: ['strangeAttractor', 'roseCurve'], symmetry: 6, symmetryMode: 'spiralMirror', particleType: 'rainbow', animation: 'psychedelic', bgAnimation: 'nebula' },
+        { name: '繁花似锦', palette: '童话森林', patterns: ['flowerPetals', 'zentangle'], symmetry: 10, symmetryMode: 'rotational', particleType: 'butterfly', animation: 'floating', bgAnimation: 'aurora' },
+    ],
 
     // ===== 45套高端配色方案 =====
     palettes: [
@@ -111,32 +172,39 @@ const RandomGenerator = {
      * @returns {Object} { config, strokes }
      */
     generate() {
+        // ---- 20%概率使用预设"惊艳"组合 ----
+        if (Math.random() > 0.8) {
+            const preset = this._MASTERPIECE_PRESETS[Math.floor(Math.random() * this._MASTERPIECE_PRESETS.length)];
+            const result = this._applyPreset(preset);
+            if (result) return result;
+        }
+
         const palette = this.palettes[Math.floor(Math.random() * this.palettes.length)];
 
-        // ---- 随机对称参数 ----
-        const evens = [4, 6, 8, 10, 12]; // 限制对称数，防止过高导致卡顿
-        const symmetryCount = evens[Math.floor(Math.random() * evens.length)];
+        // ---- 随机对称参数（基于图案智能匹配）----
+        const symmetryOptions = [3, 4, 5, 6, 8, 10, 12, 16];
+        const symmetryCount = symmetryOptions[Math.floor(Math.random() * symmetryOptions.length)];
 
         // ---- 随机速度 ----
         const rotationSpeed = Math.floor(Math.random() * 80) + 5;
 
-        // ---- 随机对称模式 ----
-        const modes = ['rotational', 'mirror', 'spiral'];
+        // ---- 随机对称模式（新增交错镜像和螺旋镜像） ----
+        const modes = ['rotational', 'mirror', 'spiral', 'interlockMirror', 'spiralMirror'];
         const symmetryMode = modes[Math.floor(Math.random() * modes.length)];
 
-        // ---- 画笔类型 ----
-        const brushTypes = ['solid', 'dashed', 'dotted', 'spray'];
+        // ---- 画笔类型（新增 ribbon 缎带型） ----
+        const brushTypes = ['solid', 'dashed', 'dotted', 'spray', 'ribbon'];
         const brushType = brushTypes[Math.floor(Math.random() * brushTypes.length)];
 
         // ---- 画笔宽度（适配不同图案） ----
         const widths = [1.5, 2, 3, 4, 5, 6, 8, 10, 12, 16];
         const strokeWidth = widths[Math.floor(Math.random() * widths.length)];
 
-        // ---- 开关效果 ----
-        const glowEnabled = Math.random() > 0.25;
-        const trailMode = Math.random() > 0.65;
-        const rainbowMode = Math.random() > 0.8;
-        const gradientEnabled = Math.random() > 0.6;
+        // ---- 开关效果（更积极地启用特效以增加视觉冲击力） ----
+        const glowEnabled = Math.random() > 0.15; // 85% 概率发光
+        const trailMode = Math.random() > 0.55;    // 45% 概率拖尾（原35%）
+        const rainbowMode = Math.random() > 0.7;   // 30% 概率彩虹（原20%）
+        const gradientEnabled = Math.random() > 0.45; // 55% 概率渐变（原40%）
 
         // ---- 粒子类型 ----
         const particleTypes = ['spark', 'star', 'rainbow', 'butterfly', 'bubble', 'snow'];
@@ -158,6 +226,13 @@ const RandomGenerator = {
         const bgGradientEnabled = Math.random() > 0.4;
         // 是否生成边框
         const borderEnabled = Math.random() > 0.5;
+        // 是否生成纹理层
+        const textureEnabled = Math.random() > 0.5;
+        // 背景动画类型
+        const bgAnimations = ['none', 'aurora', 'gradientShift', 'starField', 'nebula'];
+        const bgAnimation = bgAnimations[Math.floor(Math.random() * bgAnimations.length)];
+        // 色彩和谐类型
+        const colorHarmony = ['complementary', 'triadic', 'analogous', 'splitComplementary', 'tetradic'][Math.floor(Math.random() * 5)];
 
         // ---- 主配置 ----
         const config = {
@@ -183,6 +258,9 @@ const RandomGenerator = {
             bgGradientEnabled,
             decorativeEnabled,
             borderEnabled,
+            textureEnabled,
+            bgAnimation,
+            colorHarmony,
             mood: palette.mood,
         };
 
@@ -209,7 +287,6 @@ const RandomGenerator = {
         const cx = state.canvasWidth / 2;
         const cy = state.canvasHeight / 2;
         // 考虑对称数量，缩小maxR防止对称旋转后图案被裁剪
-        // 对称数越多，扇区角度越小，需要留更多空间
         const symCount = config.symmetryCount || 6;
         let maxR = Math.min(cx, cy) * 0.92;
         if (symCount <= 4) {
@@ -223,9 +300,9 @@ const RandomGenerator = {
         }
 
         let allStrokes = [];
-        const layerCount = 2; // 固定2层，减少生成量
+        const layerCount = Math.random() > 0.4 ? 3 : 2; // 60%概率3层，40%概率2层
 
-        // 随机选2个不同的生成器
+        // 随机选不同类别的生成器确保多样性
         const generators = this._pickRandomGenerators(layerCount);
 
         for (let i = 0; i < layerCount; i++) {
@@ -237,11 +314,17 @@ const RandomGenerator = {
             // 生成这层时用不同的调色板变体
             const layerPalette = this._derivePalette(palette, i, layerCount);
             
-            const strokes = this._invokeGenerator(
+            // 智能重试机制：评估艺术性评分，不满意则重试
+            const strokes = this._validateAndRetry(
+                () => this._invokeGenerator(
+                    generator,
+                    cx, cy, layerMaxR * layerScale,
+                    2 + Math.floor(Math.random() * 2),
+                    this._generateStrokeColors(layerPalette, 6 + Math.floor(Math.random() * 4)),
+                    config, layerPalette
+                ),
                 generator,
                 cx, cy, layerMaxR * layerScale,
-                2 + Math.floor(Math.random() * 2), // 减少每层笔画数 2-3个
-                this._generateStrokeColors(layerPalette, 6 + Math.floor(Math.random() * 4)),
                 config, layerPalette
             );
 
@@ -260,7 +343,21 @@ const RandomGenerator = {
             }
         }
 
-        // 添加装饰元素层（点、小圆、光环等）- 减少数量
+        // 添加纹理图案层
+        if (config.textureEnabled && allStrokes.length < 100) {
+            const textureStrokes = this._generateTextureLayer(cx, cy, maxR, config, palette);
+            textureStrokes.forEach(s => { s._layer = 5; s._opacity = 0.3 + Math.random() * 0.3; });
+            allStrokes = allStrokes.concat(textureStrokes);
+        }
+
+        // 添加填充型图案层
+        if (allStrokes.length < 80) {
+            const fillStrokes = this._generateFillPattern(cx, cy, maxR, config, palette);
+            fillStrokes.forEach(s => { s._layer = 6; s._opacity = 0.4 + Math.random() * 0.3; });
+            allStrokes = allStrokes.concat(fillStrokes);
+        }
+
+        // 添加装饰元素层（点、小圆、光环等）
         if (config.decorativeEnabled && allStrokes.length < 120) {
             const decorStrokes = this._generateDecorations(cx, cy, maxR, config, palette);
             decorStrokes.forEach(s => { s._layer = 3; s._opacity = 0.5 + Math.random() * 0.5; });
@@ -274,16 +371,178 @@ const RandomGenerator = {
             allStrokes = allStrokes.concat(borderStrokes);
         }
 
-        // 最终安全检查：如果没有任何笔画，强制生成保底图案
-        if (allStrokes.length === 0) {
-            console.warn('[RandomGenerator] 所有层都没有生成笔画，使用保底图案');
-            const fallbackColors = this._generateStrokeColors(palette, 8);
-            const fallbackStrokes = this.mandala(cx, cy, maxR, 3, fallbackColors, config, palette);
-            fallbackStrokes.forEach((s, i) => { s._layer = i; s._opacity = 0.9; });
-            allStrokes = fallbackStrokes;
-        }
+        // ---- 强制复杂度检查：确保最小复杂度 ----
+        allStrokes = this._ensureMinimumComplexity(allStrokes, cx, cy, maxR, config, palette);
 
         return allStrokes;
+    },
+
+    /**
+     * 强制复杂度检查 - 确保最小笔画数和点数
+     * 彻底解决纯背景问题
+     */
+    _ensureMinimumComplexity(strokes, cx, cy, maxR, config, palette) {
+        const totalPoints = strokes.reduce((sum, s) => sum + (s.length || 0), 0);
+        
+        // 如果不够，补充简单几何填充
+        while (strokes.length < this._MIN_STROKES || totalPoints < this._MIN_POINTS) {
+            console.log(`[RandomGenerator] 复杂度不足，补充填充... (笔画:${strokes.length}/${this._MIN_STROKES}, 点数:${totalPoints}/${this._MIN_POINTS})`);
+            
+            const fillerStrokes = this._generateQuickFiller(cx, cy, maxR, config, palette);
+            strokes.push(...fillerStrokes);
+            
+            // 重新计算
+            const newPoints = strokes.reduce((sum, s) => sum + (s.length || 0), 0);
+            if (newPoints <= totalPoints) {
+                // 防止死循环
+                console.warn('[RandomGenerator] 补充无效，使用强制曼陀罗');
+                const mandalaStrokes = this.mandala(cx, cy, maxR * 0.9, 4, 
+                    this._generateStrokeColors(palette, 8), config, palette);
+                strokes.push(...mandalaStrokes);
+                break;
+            }
+        }
+        
+        return strokes;
+    },
+
+    /**
+     * 快速填充生成器 - 补充简单几何图案
+     */
+    _generateQuickFiller(cx, cy, maxR, config, palette) {
+        const fillers = [
+            () => this._fillGradientCircle(cx, cy, maxR * 0.7, config, palette),
+            () => this._fillRadialGradient(cx, cy, maxR * 0.8, config, palette),
+            () => this._fillPolygonPattern(cx, cy, maxR * 0.6, config, palette),
+            () => this.concentricRings(cx, cy, maxR * 0.8, 3, 
+                this._generateStrokeColors(palette, 4), config, palette),
+            () => this.radialBurst(cx, cy, maxR * 0.8, 3, 
+                this._generateStrokeColors(palette, 4), config, palette),
+        ];
+        
+        const filler = fillers[Math.floor(Math.random() * fillers.length)];
+        return filler();
+    },
+
+    /**
+     * 智能重试机制 - 评估艺术性评分，不满意则重试
+     */
+    _validateAndRetry(generatorFn, generatorName, cx, cy, maxR, config, palette) {
+        const maxRetries = 3;
+        
+        for (let i = 0; i < maxRetries; i++) {
+            const strokes = generatorFn();
+            
+            if (!Array.isArray(strokes) || strokes.length === 0) {
+                console.warn(`[RandomGenerator] 生成器 ${generatorName} 未返回笔画，重试...`);
+                continue;
+            }
+            
+            const score = this._evaluateArtisticScore(strokes);
+            
+            if (score > 0.5) {
+                return strokes;
+            }
+            console.log(`[RandomGenerator] 艺术性评分 ${score.toFixed(2)} 不足，重试...`);
+        }
+        
+        // 多次失败后强制使用高质量备选
+        console.warn(`[RandomGenerator] 生成器 ${generatorName} 多次评分不足，使用强制曼陀罗`);
+        return this.mandala(cx, cy, maxR, 3, 
+            this._generateStrokeColors(palette, 6), config, palette);
+    },
+
+    /**
+     * 评估艺术性评分
+     * 考虑：复杂度、覆盖率、颜色多样性
+     */
+    _evaluateArtisticScore(strokes) {
+        if (!strokes || strokes.length === 0) return 0;
+        
+        // 复杂度评分（笔画数量）
+        const complexity = Math.min(1, strokes.length / this._MIN_STROKES);
+        
+        // 覆盖率评分（总点数）
+        const totalPoints = strokes.reduce((sum, s) => sum + (s.length || 0), 0);
+        const coverage = Math.min(1, totalPoints / this._MIN_POINTS);
+        
+        // 颜色多样性评分
+        const uniqueColors = new Set(strokes.filter(s => s._color).map(s => s._color)).size;
+        const colorDiversity = Math.min(1, uniqueColors / 4);
+        
+        // 综合评分
+        return complexity * 0.35 + coverage * 0.45 + colorDiversity * 0.2;
+    },
+
+    /**
+     * 应用预设组合
+     */
+    _applyPreset(preset) {
+        console.log(`[RandomGenerator] 使用预设: ${preset.name}`);
+        
+        const palette = this.palettes.find(p => p.name === preset.palette) || 
+                       this.palettes[Math.floor(Math.random() * this.palettes.length)];
+        
+        const state = StateManager.state;
+        const cx = state.canvasWidth / 2;
+        const cy = state.canvasHeight / 2;
+        let maxR = Math.min(cx, cy) * 0.8;
+        
+        // 构建配置
+        const config = {
+            bgColor: palette.bg,
+            bgGrad: palette.bgGrad,
+            strokeColor: palette.stroke,
+            glowColor: palette.glow,
+            accentColor: palette.accent || palette.glow,
+            symmetryCount: preset.symmetry,
+            rotationSpeed: 20 + Math.floor(Math.random() * 40),
+            symmetryMode: preset.symmetryMode,
+            brushType: 'solid',
+            strokeWidth: 2 + Math.random() * 4,
+            glowEnabled: true,
+            trailMode: Math.random() > 0.3,
+            rainbowMode: Math.random() > 0.6,
+            gradientEnabled: Math.random() > 0.4,
+            particleEnabled: true,
+            particleType: preset.particleType,
+            musicTheme: 'aurora',
+            spiralScale: preset.symmetryMode === 'spiral' ? (Math.floor(Math.random() * 60) - 30) : 0,
+            opacity: 0.7 + Math.random() * 0.3,
+            bgGradientEnabled: true,
+            decorativeEnabled: true,
+            borderEnabled: true,
+            textureEnabled: Math.random() > 0.4,
+            bgAnimation: preset.bgAnimation,
+            colorHarmony: 'triadic',
+            mood: palette.mood,
+        };
+
+        // 生成笔画
+        let allStrokes = [];
+        for (let i = 0; i < preset.patterns.length; i++) {
+            const pattern = preset.patterns[i];
+            const patternMaxR = maxR * (0.6 + i * 0.3);
+            const strokes = this._invokeGenerator(
+                pattern,
+                cx, cy, patternMaxR,
+                3,
+                this._generateStrokeColors(palette, 8),
+                config, palette
+            );
+            strokes.forEach(s => { s._layer = i; s._opacity = 0.8; });
+            allStrokes = allStrokes.concat(strokes);
+        }
+
+        // 补充装饰和填充
+        const decorStrokes = this._generateDecorations(cx, cy, maxR, config, palette);
+        decorStrokes.forEach(s => { s._layer = 3; s._opacity = 0.6; });
+        allStrokes = allStrokes.concat(decorStrokes);
+
+        // 复杂度检查
+        allStrokes = this._ensureMinimumComplexity(allStrokes, cx, cy, maxR, config, palette);
+
+        return { config, strokes: allStrokes };
     },
 
     /**
@@ -291,20 +550,24 @@ const RandomGenerator = {
      * 新增：高级生成器体系（流体、地形、进化、熔岩灯等）
      */
     _pickRandomGenerators(count) {
-        // 按类别分组确保多样性
+        // 按艺术风格分组确保多样性
         const primary = ['mandala', 'goldenSpiral', 'islamicGeo', 'celestialOrbits', 'waveInterference', 'laceFiligree'];
         const secondary = ['radialBurst', 'flowerPetals', 'spiralWave', 'concentricRings', 'starburst', 'feathers', 'ripples', 'tessellation', 'zentangle', 'fractalTree', 'zigzagRays', 'abstractScribble'];
         const advanced = ['fluidFlow', 'terrainContour', 'evolutionPattern', 'lavaLamp', 'polarPattern', 'nebulaCloud'];
+        // 新增艺术生成器：数学之美
+        const artistic = ['lissajous', 'roseCurve', 'fractalSnowflake', 'moirePattern', 'dnaHelix', 'strangeAttractor'];
 
         const selected = [];
         
-        // 第一层选主图案（有时也选高级生成器）
-        const allPrimary = [...primary, ...advanced];
+        // 第一层选主图案（优先选艺术生成器以增加奇特感）
+        const allPrimary = Math.random() > 0.4 
+            ? [...artistic, ...primary]   // 60%概率偏向艺术生成器
+            : [...primary, ...advanced];
         const p1 = allPrimary[Math.floor(Math.random() * allPrimary.length)];
         selected.push(p1);
 
         // 第二层选一个不同的
-        let pool = [...primary, ...secondary, ...advanced].filter(p => p !== p1);
+        let pool = [...primary, ...secondary, ...advanced, ...artistic].filter(p => p !== p1);
         if (count >= 2) {
             const p2 = pool[Math.floor(Math.random() * pool.length)];
             selected.push(p2);
@@ -330,11 +593,16 @@ const RandomGenerator = {
         const localGenerators = ['mandala', 'goldenSpiral', 'islamicGeo', 'fractalTree', 'celestialOrbits', 
             'waveInterference', 'laceFiligree', 'tessellation', 'zentangle', 'radialBurst', 
             'flowerPetals', 'spiralWave', 'concentricRings', 'zigzagRays', 'abstractScribble', 
-            'starburst', 'feathers', 'ripples'];
+            'starburst', 'feathers', 'ripples',
+            // 新增艺术生成器
+            'lissajous', 'roseCurve', 'fractalSnowflake', 'moirePattern', 'dnaHelix', 'strangeAttractor'];
         
         let strokes = [];
         
         try {
+            // 记录当前使用的生成器名称
+            StateManager.state.activeGeneratorName = name;
+
             // 优先使用本地生成器（更稳定）
             if (localGenerators.includes(name) && typeof this[name] === 'function') {
                 strokes = this[name](cx, cy, maxR, count, colors, config, palette);
@@ -406,12 +674,12 @@ const RandomGenerator = {
     },
 
     /**
-     * 生成装饰元素（散点、小圆、光环）
-     * 优化：减少装饰数量提升性能
+     * 生成装饰元素（散点、小圆、光环、螺旋装饰、有机曲线）
+     * 增强版：更多艺术性装饰
      */
     _generateDecorations(cx, cy, maxR, config, palette) {
         const strokes = [];
-        const decorCount = 8 + Math.floor(Math.random() * 12); // 减少装饰数量
+        const decorCount = 6 + Math.floor(Math.random() * 10);
         
         // 散点
         const dotColor = palette.accent || palette.stroke;
@@ -420,7 +688,6 @@ const RandomGenerator = {
             const r = maxR * (0.15 + Math.random() * 0.75);
             const size = 1 + Math.random() * 3;
             
-            // 小圆点用两个点表示（短线）
             const dot = [
                 { x: cx + r * Math.cos(angle) - size, y: cy + r * Math.sin(angle) },
                 { x: cx + r * Math.cos(angle) + size, y: cy + r * Math.sin(angle) }
@@ -430,11 +697,11 @@ const RandomGenerator = {
             strokes.push(dot);
         }
 
-        // 有时加光环（减少段数）
-        if (Math.random() > 0.5) {
+        // 光环
+        if (Math.random() > 0.4) {
             const haloR = maxR * (0.2 + Math.random() * 0.5);
             const halo = [];
-            const segments = 30 + Math.floor(Math.random() * 20); // 减少段数
+            const segments = 25 + Math.floor(Math.random() * 15);
             for (let i = 0; i <= segments; i++) {
                 const angle = (2 * Math.PI * i) / segments;
                 const wobble = Math.sin(angle * 5 + Math.random() * 3) * 2;
@@ -446,6 +713,60 @@ const RandomGenerator = {
             halo._color = palette.glow;
             halo._decor = true;
             strokes.push(halo);
+        }
+
+        // 螺旋小装饰（新增 - 旋转的小螺旋）
+        if (Math.random() > 0.5) {
+            const spiralCount = 2 + Math.floor(Math.random() * 3);
+            for (let s = 0; s < spiralCount; s++) {
+                const baseAngle = Math.random() * 2 * Math.PI;
+                const baseR = maxR * (0.3 + Math.random() * 0.4);
+                const spiralDecor = [];
+                const turns = 2 + Math.random() * 2;
+                const pts = 20 + Math.floor(Math.random() * 15);
+                const originX = cx + baseR * Math.cos(baseAngle);
+                const originY = cy + baseR * Math.sin(baseAngle);
+                const miniMaxR = maxR * (0.05 + Math.random() * 0.08);
+                
+                for (let i = 0; i <= pts; i++) {
+                    const t = i / pts;
+                    const a = t * turns * 2 * Math.PI;
+                    const r = t * miniMaxR;
+                    spiralDecor.push({
+                        x: originX + r * Math.cos(a),
+                        y: originY + r * Math.sin(a)
+                    });
+                }
+                spiralDecor._color = palette.accent || palette.glow;
+                spiralDecor._decor = true;
+                strokes.push(spiralDecor);
+            }
+        }
+
+        // 有机曲线连接（新增 - 弧形曲线连接散点）
+        if (Math.random() > 0.6) {
+            const curveCount = 2 + Math.floor(Math.random() * 4);
+            for (let c = 0; c < curveCount; c++) {
+                const curve = [];
+                const startAngle = Math.random() * 2 * Math.PI;
+                const startR = maxR * (0.2 + Math.random() * 0.3);
+                const endR = maxR * (0.5 + Math.random() * 0.4);
+                const arcSpan = 0.3 + Math.random() * 0.8;
+                const pts = 8 + Math.floor(Math.random() * 8);
+                
+                for (let i = 0; i <= pts; i++) {
+                    const t = i / pts;
+                    const a = startAngle + t * arcSpan;
+                    const r = startR + t * (endR - startR) + Math.sin(t * Math.PI * 3) * maxR * 0.03;
+                    curve.push({
+                        x: cx + r * Math.cos(a),
+                        y: cy + r * Math.sin(a)
+                    });
+                }
+                curve._color = palette.stroke;
+                curve._decor = true;
+                strokes.push(curve);
+            }
         }
 
         return strokes;
@@ -505,6 +826,306 @@ const RandomGenerator = {
             }
         }
 
+        return strokes;
+    },
+
+    // ============ 纹理图案层 ============
+
+    /**
+     * 生成纹理图案层
+     * 增添层次感和艺术性
+     */
+    _generateTextureLayer(cx, cy, maxR, config, palette) {
+        const textures = [
+            () => this._generateDotPattern(cx, cy, maxR, config, palette),
+            () => this._generateLinePattern(cx, cy, maxR, config, palette),
+            () => this._generateWavePattern(cx, cy, maxR, config, palette),
+            () => this._generateGridPattern(cx, cy, maxR, config, palette),
+        ];
+        
+        const texture = textures[Math.floor(Math.random() * textures.length)];
+        return texture();
+    },
+
+    /**
+     * 点阵纹理
+     */
+    _generateDotPattern(cx, cy, maxR, config, palette) {
+        const strokes = [];
+        const dotCount = 30 + Math.floor(Math.random() * 50);
+        const colors = this._generateStrokeColors(palette, 3);
+        
+        for (let i = 0; i < dotCount; i++) {
+            const angle = Math.random() * 2 * Math.PI;
+            const r = maxR * (0.1 + Math.random() * 0.8);
+            const size = 1 + Math.random() * 3;
+            
+            const dot = [
+                { x: cx + r * Math.cos(angle) - size, y: cy + r * Math.sin(angle) },
+                { x: cx + r * Math.cos(angle) + size, y: cy + r * Math.sin(angle) }
+            ];
+            dot._color = colors[Math.floor(Math.random() * colors.length)];
+            dot._decor = true;
+            dot._texture = true;
+            strokes.push(dot);
+        }
+        
+        return strokes;
+    },
+
+    /**
+     * 线条纹理
+     */
+    _generateLinePattern(cx, cy, maxR, config, palette) {
+        const strokes = [];
+        const lineCount = 8 + Math.floor(Math.random() * 15);
+        const colors = this._generateStrokeColors(palette, 4);
+        
+        for (let i = 0; i < lineCount; i++) {
+            const angle = (2 * Math.PI * i) / lineCount;
+            const line = [];
+            const segs = 5 + Math.floor(Math.random() * 10);
+            
+            for (let j = 0; j <= segs; j++) {
+                const t = j / segs;
+                const r = maxR * (0.2 + t * 0.6);
+                const wobble = Math.sin(t * 10 + i) * 5;
+                line.push({
+                    x: cx + (r + wobble) * Math.cos(angle),
+                    y: cy + (r + wobble) * Math.sin(angle)
+                });
+            }
+            
+            line._color = colors[i % colors.length];
+            line._decor = true;
+            line._texture = true;
+            strokes.push(line);
+        }
+        
+        return strokes;
+    },
+
+    /**
+     * 波浪纹理
+     */
+    _generateWavePattern(cx, cy, maxR, config, palette) {
+        const strokes = [];
+        const waveCount = 3 + Math.floor(Math.random() * 5);
+        const colors = this._generateStrokeColors(palette, 3);
+        
+        for (let w = 0; w < waveCount; w++) {
+            const points = [];
+            const r = maxR * (0.15 + w * 0.15 + Math.random() * 0.1);
+            const segs = 40 + Math.floor(Math.random() * 30);
+            
+            for (let j = 0; j <= segs; j++) {
+                const t = j / segs;
+                const angle = 2 * Math.PI * t;
+                const wave = Math.sin(angle * (3 + w) + w) * (2 + Math.random() * 4);
+                points.push({
+                    x: cx + (r + wave) * Math.cos(angle),
+                    y: cy + (r + wave) * Math.sin(angle)
+                });
+            }
+            
+            points._color = colors[w % colors.length];
+            points._decor = true;
+            points._texture = true;
+            strokes.push(points);
+        }
+        
+        return strokes;
+    },
+
+    /**
+     * 网格纹理
+     */
+    _generateGridPattern(cx, cy, maxR, config, palette) {
+        const strokes = [];
+        const gridSize = 4 + Math.floor(Math.random() * 6);
+        const cellSize = maxR * 2 / gridSize;
+        const startX = cx - maxR;
+        const startY = cy - maxR;
+        const colors = this._generateStrokeColors(palette, 2);
+        
+        // 横向线
+        for (let i = 0; i <= gridSize; i++) {
+            const y = startY + i * cellSize;
+            const line = [
+                { x: startX, y: y },
+                { x: startX + maxR * 2, y: y }
+            ];
+            line._color = colors[0];
+            line._decor = true;
+            line._texture = true;
+            strokes.push(line);
+        }
+        
+        // 纵向线
+        for (let i = 0; i <= gridSize; i++) {
+            const x = startX + i * cellSize;
+            const line = [
+                { x: x, y: startY },
+                { x: x, y: startY + maxR * 2 }
+            ];
+            line._color = colors[0];
+            line._decor = true;
+            line._texture = true;
+            strokes.push(line);
+        }
+        
+        return strokes;
+    },
+
+    // ============ 填充型图案生成器 ============
+
+    /**
+     * 生成填充型图案层
+     */
+    _generateFillPattern(cx, cy, maxR, config, palette) {
+        const fills = [
+            () => this._fillGradientCircle(cx, cy, maxR, config, palette),
+            () => this._fillRadialGradient(cx, cy, maxR, config, palette),
+            () => this._fillPolygonPattern(cx, cy, maxR, config, palette),
+            () => this._fillTrianglePattern(cx, cy, maxR, config, palette),
+        ];
+        
+        const fill = fills[Math.floor(Math.random() * fills.length)];
+        return fill();
+    },
+
+    /**
+     * 渐变填充圆形 - 同心圆填充
+     */
+    _fillGradientCircle(cx, cy, maxR, config, palette) {
+        const strokes = [];
+        const rings = 5 + Math.floor(Math.random() * 8);
+        const colors = this._generateStrokeColors(palette, rings);
+        
+        for (let i = 0; i < rings; i++) {
+            const r = maxR * (0.1 + i / rings * 0.85);
+            const points = [];
+            const segs = 30 + Math.floor(Math.random() * 20);
+            
+            for (let j = 0; j <= segs; j++) {
+                const angle = (2 * Math.PI * j) / segs;
+                const wobble = Math.sin(angle * 5 + i * 2) * 2;
+                points.push({
+                    x: cx + (r + wobble) * Math.cos(angle),
+                    y: cy + (r + wobble) * Math.sin(angle)
+                });
+            }
+            
+            points._color = colors[i % colors.length];
+            points._decor = true;
+            points._fill = true;
+            strokes.push(points);
+        }
+        
+        return strokes;
+    },
+
+    /**
+     * 放射状渐变填充 - 三角形/扇形填充
+     */
+    _fillRadialGradient(cx, cy, maxR, config, palette) {
+        const strokes = [];
+        const sectors = 6 + Math.floor(Math.random() * 10);
+        const rings = 3 + Math.floor(Math.random() * 5);
+        const colors = this._generateStrokeColors(palette, sectors);
+        
+        for (let s = 0; s < sectors; s++) {
+            const startAngle = (2 * Math.PI * s) / sectors;
+            const endAngle = (2 * Math.PI * (s + 1)) / sectors;
+            
+            for (let r = 0; r < rings; r++) {
+                const innerR = maxR * (r / rings * 0.8);
+                const outerR = maxR * ((r + 1) / rings * 0.85);
+                const segs = 5;
+                
+                const扇形 = [];
+                for (let j = 0; j <= segs; j++) {
+                    const t = j / segs;
+                    const angle = startAngle + t * (endAngle - startAngle);
+                    
+                    // 内部点
+                    const innerX = cx + innerR * Math.cos(angle);
+                    const innerY = cy + innerR * Math.sin(angle);
+                    const outerX = cx + outerR * Math.cos(angle);
+                    const outerY = cy + outerR * Math.sin(angle);
+                    
+                    if (j === 0) {
+                       扇形.push({ x: innerX, y: innerY });
+                    }
+                   扇形.push({ x: outerX, y: outerY });
+                    if (j === segs) {
+                       扇形.push({ x: innerX, y: innerY });
+                    }
+                }
+                
+                if (扇形.length > 2) {
+                   扇形._color = colors[s % colors.length];
+                   扇形._decor = true;
+                   扇形._fill = true;
+                    strokes.push(扇形);
+                }
+            }
+        }
+        
+        return strokes;
+    },
+
+    /**
+     * 多边形填充图案
+     */
+    _fillPolygonPattern(cx, cy, maxR, config, palette) {
+        const strokes = [];
+        const sides = 4 + Math.floor(Math.random() * 4); // 4-7边形
+        const rings = 2 + Math.floor(Math.random() * 4);
+        const colors = this._generateStrokeColors(palette, rings);
+        
+        for (let ring = 0; ring < rings; ring++) {
+            const baseR = maxR * (0.15 + ring * 0.25);
+            const polyPoints = [];
+            
+            for (let i = 0; i <= sides; i++) {
+                const angle = (2 * Math.PI * i) / sides - Math.PI / 2;
+                polyPoints.push({
+                    x: cx + baseR * Math.cos(angle),
+                    y: cy + baseR * Math.sin(angle)
+                });
+            }
+            
+            polyPoints._color = colors[ring % colors.length];
+            polyPoints._decor = true;
+            polyPoints._fill = true;
+            strokes.push(polyPoints);
+            
+            // 内部连线
+            if (ring < rings - 1) {
+                const nextR = maxR * (0.15 + (ring + 1) * 0.25);
+                for (let i = 0; i < sides; i++) {
+                    const angle = (2 * Math.PI * i) / sides - Math.PI / 2;
+                    const line = [
+                        { x: cx + baseR * Math.cos(angle), y: cy + baseR * Math.sin(angle) },
+                        { x: cx + nextR * Math.cos(angle), y: cy + nextR * Math.sin(angle) }
+                    ];
+                    line._color = colors[(ring + 1) % colors.length];
+                    line._decor = true;
+                    strokes.push(line);
+                }
+            }
+        }
+        
+        return strokes;
+    },
+
+    /**
+     * 三角形填充图案
+     */
+    _fillTrianglePattern(cx, cy, maxR, config, palette) {
+        const strokes = this._fillPolygonPattern(cx, cy, maxR, config, palette);
+        // 三角形版本特殊处理
         return strokes;
     },
 
@@ -1449,25 +2070,570 @@ const RandomGenerator = {
         return strokes;
     },
 
+    // ============ 新增艺术图案生成器：数学之美 ============
+
+    /**
+     * 莉萨如曲线 (Lissajous) - 两个正交谐振的合成曲线
+     * 经典物理美学：频率比决定形状，相位差决定旋转感
+     * 性能安全：每条曲线 ≤ 200 点，最多 4 条
+     */
+    lissajous(cx, cy, maxR, count, colors, config, palette) {
+        const strokes = [];
+        const curveCount = 1 + Math.floor(Math.random() * 3); // 1-3条曲线
+
+        for (let c = 0; c < curveCount; c++) {
+            // 频率比选择 - 精心挑选最美观的整数比
+            const ratios = [[1,2],[2,3],[3,4],[3,5],[4,5],[5,6],[3,7],[5,8],[4,7],[2,5]];
+            const [freqA, freqB] = ratios[Math.floor(Math.random() * ratios.length)];
+            const phase = Math.random() * Math.PI; // 相位差决定开口方向
+            const amplitude = maxR * (0.3 + Math.random() * 0.35);
+
+            const points = [];
+            const totalPoints = 150 + Math.floor(Math.random() * 50);
+            const periods = 2; // 绘制2个完整周期
+
+            for (let i = 0; i <= totalPoints; i++) {
+                const t = (i / totalPoints) * periods * 2 * Math.PI;
+                const x = cx + amplitude * Math.sin(freqA * t + phase);
+                const y = cy + amplitude * Math.sin(freqB * t);
+                points.push({ x, y });
+            }
+
+            if (points.length > 5) {
+                points._color = colors[c % colors.length];
+                strokes.push(points);
+            }
+        }
+
+        // 有时添加一条反相曲线（创造交错感）
+        if (Math.random() > 0.5) {
+            const ratios = [[1,2],[2,3],[3,4]];
+            const [freqA, freqB] = ratios[Math.floor(Math.random() * ratios.length)];
+            const antiPoints = [];
+            const amp = maxR * (0.2 + Math.random() * 0.25);
+            const pts = 100 + Math.floor(Math.random() * 50);
+
+            for (let i = 0; i <= pts; i++) {
+                const t = (i / pts) * 2 * 2 * Math.PI;
+                const x = cx + amp * Math.sin(freqA * t + Math.PI); // 反相
+                const y = cy + amp * Math.cos(freqB * t); // cos 替代 sin
+                antiPoints.push({ x, y });
+            }
+
+            if (antiPoints.length > 5) {
+                antiPoints._color = palette.accent || palette.glow;
+                strokes.push(antiPoints);
+            }
+        }
+
+        return strokes;
+    },
+
+    /**
+     * 玫瑰曲线 (Rhodonea) - 极坐标花瓣曲线
+     * r = cos(k*θ)，k 值决定花瓣数
+     * k 为整数时花瓣数 = k（奇数）或 2k（偶数），创造绝美对称
+     * 性能安全：每条 ≤ 180 点
+     */
+    roseCurve(cx, cy, maxR, count, colors, config, palette) {
+        const strokes = [];
+        const roseCount = 1 + Math.floor(Math.random() * 2);
+
+        // 精心挑选 k 值，确保视觉美感
+        const kValues = [2, 3, 4, 5, 6, 7, 8, 1.5, 2.5, 3.5, 5/3, 7/4, 7/3];
+        
+        for (let r = 0; r < roseCount; r++) {
+            const k = kValues[Math.floor(Math.random() * kValues.length)];
+            const amplitude = maxR * (0.3 + Math.random() * 0.4);
+            const points = [];
+
+            // 对于分数 k，需要更多角度才能闭合
+            const isFractional = k !== Math.floor(k);
+            const maxAngle = isFractional ? 4 * Math.PI : 2 * Math.PI;
+            const totalPoints = isFractional ? 200 : 120;
+
+            for (let i = 0; i <= totalPoints; i++) {
+                const theta = (i / totalPoints) * maxAngle;
+                const radius = amplitude * Math.cos(k * theta);
+                points.push({
+                    x: cx + radius * Math.cos(theta),
+                    y: cy + radius * Math.sin(theta)
+                });
+            }
+
+            if (points.length > 5) {
+                points._color = colors[r % colors.length];
+                strokes.push(points);
+            }
+        }
+
+        // 内层小玫瑰（增添精致感）
+        if (Math.random() > 0.4) {
+            const innerK = [3, 5, 7][Math.floor(Math.random() * 3)];
+            const innerR = maxR * (0.1 + Math.random() * 0.15);
+            const innerPoints = [];
+            const pts = 80;
+
+            for (let i = 0; i <= pts; i++) {
+                const theta = (i / pts) * 2 * Math.PI;
+                const radius = innerR * Math.cos(innerK * theta);
+                innerPoints.push({
+                    x: cx + radius * Math.cos(theta),
+                    y: cy + radius * Math.sin(theta)
+                });
+            }
+
+            innerPoints._color = palette.glow;
+            strokes.push(innerPoints);
+        }
+
+        return strokes;
+    },
+
+    /**
+     * 分形雪花 (Koch Snowflake) - 科赫曲线
+     * 递归替换直线为三角凸起，产生雪花形状
+     * 性能安全：限制递归深度 ≤ 4（4^4 = 256段），仅1个笔画
+     */
+    fractalSnowflake(cx, cy, maxR, count, colors, config, palette) {
+        const strokes = [];
+        const depth = 2 + Math.floor(Math.random() * 3); // 2-4层递归
+        const size = maxR * (0.4 + Math.random() * 0.3);
+
+        // 初始等边三角形顶点
+        const vertices = [];
+        for (let i = 0; i < 3; i++) {
+            const angle = (2 * Math.PI * i) / 3 - Math.PI / 2;
+            vertices.push({
+                x: cx + size * Math.cos(angle),
+                y: cy + size * Math.sin(angle)
+            });
+        }
+
+        // Koch 递归：将线段替换为 _/\_ 形
+        const kochSubdivide = (p1, p2, d) => {
+            if (d <= 0) return [p1];
+
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+
+            // 三等分点
+            const a = { x: p1.x + dx / 3, y: p1.y + dy / 3 };
+            const b = { x: p1.x + dx * 2 / 3, y: p1.y + dy * 2 / 3 };
+
+            // 凸起顶点（等边三角形）
+            const peak = {
+                x: a.x + (dx * Math.cos(Math.PI / 3) - dy * Math.sin(Math.PI / 3)) / 3,
+                y: a.y + (dx * Math.sin(Math.PI / 3) + dy * Math.cos(Math.PI / 3)) / 3
+            };
+
+            return [
+                ...kochSubdivide(p1, a, d - 1),
+                ...kochSubdivide(a, peak, d - 1),
+                ...kochSubdivide(peak, b, d - 1),
+                ...kochSubdivide(b, p2, d - 1)
+            ];
+        };
+
+        // 生成完整雪花轮廓
+        const snowflake = [];
+        for (let i = 0; i < 3; i++) {
+            const p1 = vertices[i];
+            const p2 = vertices[(i + 1) % 3];
+            const segPoints = kochSubdivide(p1, p2, depth);
+            snowflake.push(...segPoints);
+        }
+        // 闭合
+        snowflake.push(snowflake[0]);
+
+        snowflake._color = colors[0];
+        strokes.push(snowflake);
+
+        // 内层反向雪花（创造奇特感）
+        if (Math.random() > 0.5 && depth >= 3) {
+            const innerSize = size * 0.45;
+            const innerVertices = [];
+            for (let i = 0; i < 3; i++) {
+                const angle = (2 * Math.PI * i) / 3 + Math.PI / 6; // 旋转30度
+                innerVertices.push({
+                    x: cx + innerSize * Math.cos(angle),
+                    y: cy + innerSize * Math.sin(angle)
+                });
+            }
+
+            const innerSnowflake = [];
+            for (let i = 0; i < 3; i++) {
+                const p1 = innerVertices[i];
+                const p2 = innerVertices[(i + 1) % 3];
+                const segPoints = kochSubdivide(p1, p2, Math.max(2, depth - 1));
+                innerSnowflake.push(...segPoints);
+            }
+            innerSnowflake.push(innerSnowflake[0]);
+            innerSnowflake._color = colors[Math.min(1, colors.length - 1)];
+            strokes.push(innerSnowflake);
+        }
+
+        return strokes;
+    },
+
+    /**
+     * 莫尔条纹 (Moiré Pattern) - 两组规则图案叠加产生干涉
+     * 人眼感知到不存在于任何一组的虚拟图案，极具视觉冲击力
+     * 性能安全：每组 ≤ 30 条线，线段简化
+     */
+    moirePattern(cx, cy, maxR, count, colors, config, palette) {
+        const strokes = [];
+        const patternType = Math.floor(Math.random() * 3); // 3种莫尔类型
+
+        if (patternType === 0) {
+            // 类型1：同心圆叠加（偏移）
+            const offset1 = { x: 0, y: 0 };
+            const offset2 = { x: maxR * (0.05 + Math.random() * 0.12), y: maxR * (0.03 + Math.random() * 0.08) };
+            const ringCount = 12 + Math.floor(Math.random() * 10);
+            const spacing = maxR / ringCount;
+
+            for (let set = 0; set < 2; set++) {
+                const off = set === 0 ? offset1 : offset2;
+                for (let i = 1; i <= ringCount; i++) {
+                    const ring = [];
+                    const r = i * spacing;
+                    const segs = 30 + Math.floor(Math.random() * 10);
+                    for (let j = 0; j <= segs; j++) {
+                        const a = (2 * Math.PI * j) / segs;
+                        ring.push({
+                            x: cx + off.x + r * Math.cos(a),
+                            y: cy + off.y + r * Math.sin(a)
+                        });
+                    }
+                    ring._color = set === 0 ? colors[0] : colors[Math.min(1, colors.length - 1)];
+                    strokes.push(ring);
+                }
+            }
+        } else if (patternType === 1) {
+            // 类型2：放射线叠加（角度偏移）
+            const rayCount1 = 20 + Math.floor(Math.random() * 20);
+            const angleOffset = (0.5 + Math.random() * 2) * Math.PI / 180; // 微小角度偏移
+            const centerOffset = { x: maxR * (0.02 + Math.random() * 0.05), y: 0 };
+
+            for (let set = 0; set < 2; set++) {
+                for (let i = 0; i < rayCount1; i++) {
+                    const a = (2 * Math.PI * i) / rayCount1 + set * angleOffset;
+                    const offX = set === 0 ? 0 : centerOffset.x;
+                    const ray = [
+                        { x: cx + offX, y: cy },
+                        { x: cx + offX + maxR * Math.cos(a), y: cy + maxR * Math.sin(a) }
+                    ];
+                    ray._color = set === 0 ? colors[0] : colors[Math.min(1, colors.length - 1)];
+                    strokes.push(ray);
+                }
+            }
+        } else {
+            // 类型3：平行线叠加（旋转偏移）
+            const lineCount = 15 + Math.floor(Math.random() * 10);
+            const spacing = maxR * 2 / lineCount;
+            const rotationOffset = 2 + Math.random() * 5; // 度数偏移
+
+            for (let set = 0; set < 2; set++) {
+                const baseAngle = set * rotationOffset * Math.PI / 180;
+                for (let i = 0; i < lineCount; i++) {
+                    const offset = (i - lineCount / 2) * spacing;
+                    const x1 = cx + offset * Math.cos(baseAngle + Math.PI / 2) - maxR * Math.cos(baseAngle);
+                    const y1 = cy + offset * Math.sin(baseAngle + Math.PI / 2) - maxR * Math.sin(baseAngle);
+                    const x2 = cx + offset * Math.cos(baseAngle + Math.PI / 2) + maxR * Math.cos(baseAngle);
+                    const y2 = cy + offset * Math.sin(baseAngle + Math.PI / 2) + maxR * Math.sin(baseAngle);
+                    
+                    const line = [
+                        { x: x1, y: y1 },
+                        { x: x2, y: y2 }
+                    ];
+                    line._color = set === 0 ? colors[0] : colors[Math.min(1, colors.length - 1)];
+                    strokes.push(line);
+                }
+            }
+        }
+
+        return strokes;
+    },
+
+    /**
+     * DNA双螺旋 - 双螺旋结构
+     * 两条螺旋主链 + 横向碱基对连接线
+     * 性能安全：每条螺旋 ≤ 120 点，连接线 ≤ 30 条
+     */
+    dnaHelix(cx, cy, maxR, count, colors, config, palette) {
+        const strokes = [];
+        const turns = 2 + Math.random() * 3;
+        const helixR = maxR * (0.2 + Math.random() * 0.2);
+        const verticalSpan = maxR * (0.6 + Math.random() * 0.5);
+        const totalPoints = 100 + Math.floor(Math.random() * 30);
+
+        // 两条螺旋主链
+        const helix1 = [];
+        const helix2 = [];
+
+        for (let i = 0; i <= totalPoints; i++) {
+            const t = i / totalPoints;
+            const angle = t * turns * 2 * Math.PI;
+            const y = cy - verticalSpan / 2 + t * verticalSpan;
+            // 透视效果：z 轴用 cos 表示深度
+            const depth1 = Math.cos(angle);
+            const depth2 = Math.cos(angle + Math.PI);
+
+            helix1.push({
+                x: cx + helixR * Math.sin(angle),
+                y: y + depth1 * maxR * 0.02 // 微妙的3D感
+            });
+            helix2.push({
+                x: cx + helixR * Math.sin(angle + Math.PI),
+                y: y + depth2 * maxR * 0.02
+            });
+        }
+
+        helix1._color = colors[0];
+        helix2._color = colors[Math.min(1, colors.length - 1)];
+        strokes.push(helix1);
+        strokes.push(helix2);
+
+        // 碱基对连接线（横向短线）
+        const basePairCount = 10 + Math.floor(Math.random() * 15);
+        for (let i = 0; i < basePairCount; i++) {
+            const t = (i + 0.5) / basePairCount;
+            const angle = t * turns * 2 * Math.PI;
+            const y = cy - verticalSpan / 2 + t * verticalSpan;
+
+            const x1 = cx + helixR * Math.sin(angle);
+            const x2 = cx + helixR * Math.sin(angle + Math.PI);
+
+            const connector = [
+                { x: x1, y: y + Math.cos(angle) * maxR * 0.02 },
+                { x: x2, y: y + Math.cos(angle + Math.PI) * maxR * 0.02 }
+            ];
+            connector._color = colors[(i + 2) % colors.length];
+            strokes.push(connector);
+        }
+
+        return strokes;
+    },
+
+    /**
+     * 奇异吸引子 (Strange Attractor) - 混沌系统的轨迹
+     * 三个经典吸引子：Lorenz, Clifford, De Jong
+     * 混沌中涌现秩序，极其奇特美妙
+     * 性能安全：≤ 500 点/条，1-2 条轨迹
+     */
+    strangeAttractor(cx, cy, maxR, count, colors, config, palette) {
+        const strokes = [];
+        const type = Math.floor(Math.random() * 3); // 3种吸引子
+
+        if (type === 0) {
+            // Clifford 吸引子: x' = sin(a*y) + c*cos(a*x), y' = sin(b*x) + d*cos(b*y)
+            const a = -1.4 + Math.random() * 0.8;
+            const b = 1.6 + Math.random() * 0.4;
+            const c = 1.0 + Math.random() * 0.4;
+            const d = 0.7 + Math.random() * 0.5;
+
+            const points = [];
+            let x = 0.1, y = 0.1;
+            const iterations = 300 + Math.floor(Math.random() * 200);
+            
+            // 跳过前50次迭代（让轨迹稳定）
+            for (let i = 0; i < 50; i++) {
+                const nx = Math.sin(a * y) + c * Math.cos(a * x);
+                const ny = Math.sin(b * x) + d * Math.cos(b * y);
+                x = nx; y = ny;
+            }
+
+            for (let i = 0; i < iterations; i++) {
+                const nx = Math.sin(a * y) + c * Math.cos(a * x);
+                const ny = Math.sin(b * x) + d * Math.cos(b * y);
+                x = nx; y = ny;
+
+                // 映射到画布坐标（Clifford 范围约 -3~3）
+                points.push({
+                    x: cx + x * maxR * 0.25,
+                    y: cy + y * maxR * 0.25
+                });
+            }
+
+            if (points.length > 10) {
+                points._color = colors[0];
+                strokes.push(points);
+            }
+        } else if (type === 1) {
+            // De Jong 吸引子: x' = sin(a*y) - cos(b*x), y' = sin(c*x) - cos(d*y)
+            const a = -2 + Math.random() * 4;
+            const b = -2 + Math.random() * 4;
+            const c = -2 + Math.random() * 4;
+            const d = -2 + Math.random() * 4;
+
+            const points = [];
+            let x = 0.1, y = 0.1;
+            const iterations = 300 + Math.floor(Math.random() * 200);
+            
+            for (let i = 0; i < 50; i++) {
+                const nx = Math.sin(a * y) - Math.cos(b * x);
+                const ny = Math.sin(c * x) - Math.cos(d * y);
+                x = nx; y = ny;
+            }
+
+            for (let i = 0; i < iterations; i++) {
+                const nx = Math.sin(a * y) - Math.cos(b * x);
+                const ny = Math.sin(c * x) - Math.cos(d * y);
+                x = nx; y = ny;
+
+                points.push({
+                    x: cx + x * maxR * 0.3,
+                    y: cy + y * maxR * 0.3
+                });
+            }
+
+            if (points.length > 10) {
+                points._color = colors[0];
+                strokes.push(points);
+            }
+        } else {
+            // Peter de Jong 对称吸引子（更美观的参数选择）
+            const paramSets = [
+                { a: 1.4, b: -2.3, c: 2.4, d: -2.1 },
+                { a: -2.24, b: 0.43, c: -0.65, d: -2.43 },
+                { a: 2.01, b: -2.53, c: 1.61, d: -0.33 },
+                { a: -1.9, b: -1.9, c: -1.9, d: -1.9 },
+                { a: 1.7, b: 1.7, c: 0.6, d: 1.2 }
+            ];
+            const params = paramSets[Math.floor(Math.random() * paramSets.length)];
+
+            // 两条轨迹：不同初始点
+            for (let t = 0; t < 2; t++) {
+                const points = [];
+                let x = 0.1 * (t + 1), y = -0.1 * (t + 1);
+                const iterations = 200 + Math.floor(Math.random() * 100);
+                
+                for (let i = 0; i < 30; i++) {
+                    const nx = Math.sin(params.a * y) - Math.cos(params.b * x);
+                    const ny = Math.sin(params.c * x) - Math.cos(params.d * y);
+                    x = nx; y = ny;
+                }
+
+                for (let i = 0; i < iterations; i++) {
+                    const nx = Math.sin(params.a * y) - Math.cos(params.b * x);
+                    const ny = Math.sin(params.c * x) - Math.cos(params.d * y);
+                    x = nx; y = ny;
+
+                    points.push({
+                        x: cx + x * maxR * 0.28,
+                        y: cy + y * maxR * 0.28
+                    });
+                }
+
+                if (points.length > 10) {
+                    points._color = colors[t % colors.length];
+                    strokes.push(points);
+                }
+            }
+        }
+
+        return strokes;
+    },
+
     // ============ 配色系统 ============
 
     /**
-     * 生成一组和谐配色
+     * 生成一组和谐配色 - 基于色彩和谐理论
      */
     _generateStrokeColors(palette, count) {
         const base = palette.stroke;
-        const colors = [base];
+        const harmonyType = StateManager.state.colorHarmony || 'analogous';
         
-        for (let i = 1; i < count; i++) {
-            const color = this._shiftColor(base, palette.accent || palette.glow);
-            if (color) colors.push(color);
-            else {
-                colors.push(base);
-            }
+        // 基础色相获取
+        const baseHSV = this._hexToHSV(base);
+        if (!baseHSV) {
+            const fallback = [base];
+            for (let i = 1; i < count; i++) fallback.push(base);
+            return fallback;
         }
         
-        // 随机色彩分布
+        // 根据和谐类型计算色相偏移
+        const harmonies = {
+            complementary: [0, 180],
+            triadic: [0, 120, 240],
+            analogous: [0, 30, 60, -30],
+            splitComplementary: [0, 150, 210],
+            tetradic: [0, 90, 180, 270],
+        };
+        
+        const angles = harmonies[harmonyType] || harmonies.analogous;
+        const colors = [];
+        
+        for (let i = 0; i < count; i++) {
+            const angle = angles[i % angles.length];
+            const saturationVar = (Math.random() * 0.3 - 0.15);
+            const valueVar = (Math.random() * 0.3 - 0.15);
+            
+            const h = (baseHSV.h + angle + Math.random() * 20 - 10) % 360;
+            const s = Math.max(0, Math.min(1, baseHSV.s + saturationVar));
+            const v = Math.max(0, Math.min(1, baseHSV.v + valueVar));
+            
+            colors.push(this._hsvToHex(h, s, v));
+        }
+        
         return colors.sort(() => Math.random() - 0.5);
+    },
+
+    /**
+     * HEX转HSV
+     */
+    _hexToHSV(hex) {
+        try {
+            if (!hex || !hex.startsWith('#')) return null;
+            
+            let r = parseInt(hex.slice(1, 3), 16) / 255;
+            let g = parseInt(hex.slice(3, 5), 16) / 255;
+            let b = parseInt(hex.slice(5, 7), 16) / 255;
+            
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const d = max - min;
+            
+            let h = 0;
+            const s = max === 0 ? 0 : d / max;
+            const v = max;
+            
+            if (d !== 0) {
+                switch (max) {
+                    case r: h = ((g - b) / d + (g < b ? 6 : 0)) * 60; break;
+                    case g: h = ((b - r) / d + 2) * 60; break;
+                    case b: h = ((r - g) / d + 4) * 60; break;
+                }
+            }
+            
+            return { h, s, v };
+        } catch (e) {
+            return null;
+        }
+    },
+
+    /**
+     * HSV转HEX
+     */
+    _hsvToHex(h, s, v) {
+        h = ((h % 360) + 360) % 360;
+        s = Math.max(0, Math.min(1, s));
+        v = Math.max(0, Math.min(1, v));
+        
+        const c = v * s;
+        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        const m = v - c;
+        
+        let r, g, b;
+        if (h < 60) { r = c; g = x; b = 0; }
+        else if (h < 120) { r = x; g = c; b = 0; }
+        else if (h < 180) { r = 0; g = c; b = x; }
+        else if (h < 240) { r = 0; g = x; b = c; }
+        else if (h < 300) { r = x; g = 0; b = c; }
+        else { r = c; g = 0; b = x; }
+        
+        const toHex = (n) => Math.round((n + m) * 255).toString(16).padStart(2, '0');
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
     },
 
     /**
@@ -1594,17 +2760,16 @@ const RandomGenerator = {
             const isDarkBg = this._isColorDark(config.bgColor);
             updates.trailMode = !isDarkBg && Math.random() > 0.7;
             
-            // 安全默认：确保混合模式不会导致内容不可见
-            // 深色背景上 'multiply' 会导致内容全黑，浅色背景上 'screen' 会导致内容全白
-            const safeBlendModes = ['normal', 'screen', 'overlay', 'soft-light', 'lighter'];
-            if (Math.random() > 0.85) {
+            // 安全默认：混合模式 - 更大胆的艺术性使用
+            // 深色背景上用 screen/lighter/difference 创造发光效果
+            // 浅色背景上用 multiply/overlay 创造深度
+            const darkBlendModes = ['normal', 'screen', 'lighter', 'overlay', 'soft-light', 'color-dodge', 'difference', 'exclusion'];
+            const lightBlendModes = ['normal', 'multiply', 'overlay', 'soft-light', 'hard-light', 'difference'];
+            if (Math.random() > 0.7) {  // 30%概率启用混合模式（原15%）
                 if (isDarkBg) {
-                    // 深色背景避免 multiply 和 color-burn
-                    updates.blendMode = safeBlendModes[Math.floor(Math.random() * safeBlendModes.length)];
+                    updates.blendMode = darkBlendModes[Math.floor(Math.random() * darkBlendModes.length)];
                 } else {
-                    // 浅色背景避免 screen
-                    const lightSafe = ['normal', 'multiply', 'overlay', 'soft-light'];
-                    updates.blendMode = lightSafe[Math.floor(Math.random() * lightSafe.length)];
+                    updates.blendMode = lightBlendModes[Math.floor(Math.random() * lightBlendModes.length)];
                 }
             } else {
                 updates.blendMode = 'normal';
@@ -1682,6 +2847,15 @@ const RandomGenerator = {
                 CanvasRenderer.needRedrawOffscreen = true;
             }
             
+            // 更新背景动画
+            if (typeof BackgroundAnimation !== 'undefined') {
+                if (config.bgAnimation && config.bgAnimation !== 'none') {
+                    BackgroundAnimation.setType(config.bgAnimation);
+                } else {
+                    BackgroundAnimation.setType('none');
+                }
+            }
+            
             // 清空主画布并立即绘制背景，防止闪烁/白屏/黑屏
             if (CanvasRenderer && CanvasRenderer.ctx) {
                 const bgColor = config.bgColor || '#0a0a1a';
@@ -1720,6 +2894,20 @@ const RandomGenerator = {
         const hasDecor = strokes.some(s => s._decor);
         const layerCount = new Set(strokes.filter(s => s._layer !== undefined).map(s => s._layer)).size;
         
+        // 新增艺术生成器识别
+        const state = StateManager.state;
+        if (state.activeGeneratorName) {
+            const nameMap = {
+                'lissajous': '莉萨如',
+                'roseCurve': '玫瑰曲线',
+                'fractalSnowflake': '分形雪花',
+                'moirePattern': '莫尔条纹',
+                'dnaHelix': 'DNA螺旋',
+                'strangeAttractor': '奇异吸引子'
+            };
+            if (nameMap[state.activeGeneratorName]) return nameMap[state.activeGeneratorName];
+        }
+        
         if (hasDecor) return layerCount > 2 ? '多层华彩' : '装饰艺术';
         if (strokes.length > 30) return '曼陀罗';
         if (strokes.some(s => s.length > 80)) return '黄金螺旋';
@@ -1739,7 +2927,7 @@ const RandomGenerator = {
     },
 
     /**
-     * 显示Toast提示 - 大和谐大综合版本！
+     * 显示Toast提示 - V3.0 增强版！
      */
     _showRandomToast(config, paletteName) {
         const toast = document.getElementById('toast');
@@ -1748,9 +2936,8 @@ const RandomGenerator = {
         const patName = this._getGeneratorName(config, StateManager.state.strokes);
         const state = StateManager.state;
         
-        // 收集所有激活的大和谐功能！
+        // 收集所有激活的功能
         const animated = typeof AnimationController !== 'undefined' && AnimationController.enabled;
-        const hasParticles = state.strokes.length > 0;
         
         const parts = [
             paletteName ? `🎨 ${paletteName}` : null,
@@ -1761,33 +2948,57 @@ const RandomGenerator = {
             state.glowEnabled ? '✨发光' : null,
             config.decorativeEnabled ? '💎装饰' : null,
             config.borderEnabled ? '🖼️边框' : null,
+            config.textureEnabled ? '🧩纹理' : null,
             animated ? '🎉动画' : null,
             state.gradientEnabled ? '🖌️渐变' : null,
-            state.materialPalette && state.materialPalette !== 'none' ? '🎭色板' : null,
             state.blendMode && state.blendMode !== 'normal' ? '🎨混合' : null,
+            config.bgAnimation && config.bgAnimation !== 'none' ? `🌌${this._bgAnimationName(config.bgAnimation)}` : null,
+            config.colorHarmony ? `🔮${this._colorHarmonyName(config.colorHarmony)}` : null,
             state.brushType && state.brushType !== 'solid' ? `✏️${this._brushName(state.brushType)}` : null
         ].filter(Boolean);
 
-        // 随机表情！让每次都有惊喜！
-        const emoji = ['🎊', '🎉', '✨', '🌈', '🔥', '💫', '🌟', '🎨'][Math.floor(Math.random() * 8)];
+        // 随机表情
+        const emoji = ['🎊', '🎉', '✨', '🌈', '🔥', '💫', '🌟', '🎨', '🌌', '💎', '🔮'][Math.floor(Math.random() * 11)];
         
         const message = parts.join(' · ');
-        toast.textContent = `${emoji} 大和谐: ${message}`;
+        toast.textContent = `${emoji} 艺术生成: ${message}`;
         toast.classList.add('show');
 
         if (this._toastTimer) clearTimeout(this._toastTimer);
         this._toastTimer = setTimeout(() => {
             toast.classList.remove('show');
-        }, 3500);
+        }, 4000);
+    },
+
+    _bgAnimationName(type) {
+        const names = {
+            none: '无动效',
+            aurora: '极光',
+            gradientShift: '渐变漂移',
+            starField: '星空',
+            nebula: '星云'
+        };
+        return names[type] || type;
+    },
+
+    _colorHarmonyName(type) {
+        const names = {
+            complementary: '互补',
+            triadic: '三色',
+            analogous: '类似',
+            splitComplementary: '分裂互补',
+            tetradic: '四色'
+        };
+        return names[type] || type;
     },
 
     _brushName(type) {
-        const names = { solid: '实线', dashed: '虚线', dotted: '点线', spray: '喷枪' };
+        const names = { solid: '实线', dashed: '虚线', dotted: '点线', spray: '喷枪', ribbon: '缎带' };
         return names[type] || type;
     },
 
     _modeName(mode) {
-        return { rotational: '旋转', mirror: '镜像', spiral: '螺旋' }[mode] || mode;
+        return { rotational: '旋转', mirror: '镜像', spiral: '螺旋', interlockMirror: '交错', spiralMirror: '螺镜' }[mode] || mode;
     },
 
     /**

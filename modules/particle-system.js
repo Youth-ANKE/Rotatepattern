@@ -383,5 +383,21 @@ const ParticleSystem = {
             this._release(p);
         }
         this.particles = [];
+    },
+
+    /**
+     * 销毁粒子系统（清空粒子+对象池，重置状态）
+     */
+    destroy() {
+        this.clear();
+        this._pool = [];
+        this._isLowPerformance = false;
+        this._spawnRateScale = 1;
+        this._windX = 0;
+        this._windY = 0;
+        this._windTimer = 0;
+        this._frameCount = 0;
+        this._fps = 60;
+        console.log('[ParticleSystem] 已销毁');
     }
 };

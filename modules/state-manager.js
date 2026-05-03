@@ -38,10 +38,10 @@ const StateManager = {
         // 画笔设置
         strokeColor: '#ffffff',
         strokeWidth: 2,
-        brushType: 'solid',  // solid, dashed, dotted, spray
+        brushType: 'solid',  // solid, dashed, dotted, spray, ribbon
 
         // 对称设置
-        symmetryMode: 'rotational',  // rotational, mirror, spiral
+        symmetryMode: 'rotational',  // rotational, mirror, spiral, interlockMirror, spiralMirror
         symmetryCount: 6,
         spiralScale: 0,
 
@@ -333,6 +333,9 @@ const StateManager = {
         this.state.strokes = [];
         this._history = [];
         this._historyIndex = -1;
+        if (typeof CanvasRenderer !== 'undefined') {
+            CanvasRenderer.needRedrawOffscreen = true;
+        }
         this.notify();
     },
 
@@ -697,34 +700,5 @@ const StateManager = {
         const pal = this.getSafeColorPalette();
         if (pal.length === 0) return 0;
         return (index < 0 ? 0 : index) % pal.length;
-    },
-
-    /**
-     * 保存画廊到 localStorage
-     */
-    _saveGallery() {
-        try {
-            // 只保留最近的 20 张截图以防止超限
-            const images = this.state.galleryImages.slice(-20);
-            localStorage.setItem('kaleidoscope_gallery', JSON.stringify(images));
-        } catch (e) {
-            console.warn('[StateManager] 画廊保存失败:', e.message);
-        }
-    },
-
-    /**
-     * 从 localStorage 加载画廊
-     */
-    _loadGallery() {
-        try {
-            const raw = localStorage.getItem('kaleidoscope_gallery');
-            if (!raw) return;
-            const images = JSON.parse(raw);
-            if (Array.isArray(images)) {
-                this.state.galleryImages = images;
-            }
-        } catch (e) {
-            console.warn('[StateManager] 画廊加载失败:', e.message);
-        }
     }
 };

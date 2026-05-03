@@ -6,7 +6,7 @@
  * 更新: 2026-05-02 (fix: AudioEngine NaN, cache busting)
  */
 
-const CACHE_NAME = 'kaleidoscope-cache-v2';
+const CACHE_NAME = 'kaleidoscope-cache-v3';
 
 // 需要预缓存的核心资源
 const PRECACHE_URLS = [
@@ -15,6 +15,8 @@ const PRECACHE_URLS = [
   '/styles.css',
   '/main.js',
   '/utils/math-utils.js',
+  '/utils/storage-utils.js',
+  '/utils/error-handler.js',
   '/modules/state-manager.js',
   '/modules/audio-engine.js',
   '/modules/particle-system.js',
@@ -23,7 +25,9 @@ const PRECACHE_URLS = [
   '/modules/input-handler.js',
   '/modules/keyboard-handler.js',
   '/modules/ui-controller.js',
-  '/manifest.json',
+  '/modules/animation-controller.js',
+  '/modules/fullscreen-controller.js',
+  '/public/manifest.json',
   '/favicon.ico'
 ];
 
@@ -143,6 +147,12 @@ self.addEventListener('fetch', event => {
   // API请求使用网络优先（带超时）
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(networkWithTimeout(request, 3000));
+    return;
+  }
+
+  // 音频文件使用缓存优先（离线可用）
+  if (url.pathname.match(/\.(mp3|wav|ogg)$/)) {
+    event.respondWith(cacheFirst(request));
     return;
   }
 

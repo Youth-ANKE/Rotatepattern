@@ -21,7 +21,15 @@ const http = require('http');
 const https = require('https');
 
 // ==================== 配置 ====================
-const PORT = parseInt(process.argv.find(a => a.startsWith('--port='))?.split('=')[1]) || 3000;
+const PORT = (() => {
+  const arg = process.argv.find(a => a.startsWith('--port='));
+  if (arg) {
+    const num = parseInt(arg.split('=')[1], 10);
+    if (Number.isFinite(num) && num > 0 && num < 65536) return num;
+    console.warn(`[配置] 无效端口号: ${arg.split('=')[1]}，使用默认 3000`);
+  }
+  return 3000;
+})();
 const DATA_DIR = path.join(__dirname, 'server-data');
 const PROJECTS_DIR = path.join(DATA_DIR, 'projects');
 const GALLERY_DIR = path.join(DATA_DIR, 'gallery');
@@ -672,13 +680,35 @@ function getFallbackMusic() {
     };
 }
 
+// ==================== 音频代理安全配置 ====================
+const ALLOWED_AUDIO_DOMAINS = [
+  'soundhelix.com', 'www.soundhelix.com',
+  'api.uomg.com', 'api.infinitecloud.cn', 'api.v1.mk'
+];
+
 /**
  * 代理音频流（解决跨域问题）
+ * 安全加固：仅代理白名单域名，防止 SSRF
  */
 app.get('/api/online-music/stream', (req, res) => {
     const audioUrl = req.query.url;
     if (!audioUrl) {
         return res.status(400).json({ success: false, message: '缺少音频URL参数' });
+    }
+
+    // 安全校验：只允许白名单域名
+    let urlObj;
+    try {
+        urlObj = new URL(audioUrl);
+    } catch (e) {
+        return res.status(400).json({ success: false, message: '无效的URL格式' });
+    }
+    if (!['http:', 'https:'].includes(urlObj.protocol)) {
+        return res.status(400).json({ success: false, message: '仅支持 HTTP/HTTPS 协议' });
+    }
+    const isAllowed = ALLOWED_AUDIO_DOMAINS.some(d => urlObj.hostname === d || urlObj.hostname.endsWith('.' + d));
+    if (!isAllowed) {
+        return res.status(403).json({ success: false, message: '不允许的音频源域名' });
     }
 
     console.log(`[音频代理] 请求: ${audioUrl.substring(0, 80)}...`);
@@ -739,51 +769,37 @@ app.get('/api/online-music/stream', (req, res) => {
 
 // ==================== 音效库 API（新增） ====================
 
+// 音效列表（统一维护，避免重复定义）
+const SOUND_EFFECTS = [
+    { id: 'rain', name: '🌧️ 细雨', type: 'whiteNoise', params: { duration: 2.0, highpass: 2000, gain: 0.3 } },
+    { id: 'ocean', name: '🌊 海浪', type: 'brownNoise', params: { duration: 3.0, lowpass: 600, gain: 0.25 } },
+    { id: 'wind', name: '💨 风声', type: 'pinkNoise', params: { duration: 2.5, bandpass: { freq: 400, Q: 0.5 }, gain: 0.2 } },
+    { id: 'drip', name: '💧 水滴', type: 'tone', params: { freq: 800, decay: 0.15, gain: 0.4 } },
+    { id: 'chime', name: '🔔 风铃', type: 'harmonic', params: { baseFreq: 440, harmonics: [1, 2.5, 4.2], decay: 0.8, gain: 0.3 } },
+    { id: 'click', name: '🖱️ 咔嗒', type: 'noiseClick', params: { duration: 0.03, gain: 0.5 } },
+    { id: 'swoosh', name: '🌀 嗖嗖', type: 'sweep', params: { freqStart: 200, freqEnd: 2000, duration: 0.4, gain: 0.3 } },
+    { id: 'bubble', name: '🫧 泡泡', type: 'tone', params: { freq: 1200, decay: 0.08, gain: 0.35 } },
+    { id: 'heartbeat', name: '💓 心跳', type: 'pulse', params: { freq: 60, decay: 0.2, gain: 0.5, interval: 0.8 } },
+    { id: 'crackle', name: '🔥 噼啪', type: 'crackle', params: { density: 0.3, duration: 1.0, gain: 0.4 } },
+    { id: 'harp', name: '🎵 竖琴拨弦', type: 'tone', params: { freq: 523, decay: 0.6, gain: 0.3 } },
+    { id: 'bell', name: '🔔 钟声', type: 'harmonic', params: { baseFreq: 660, harmonics: [1, 3, 5], decay: 1.5, gain: 0.25 } },
+    { id: 'rainforest', name: '🌴 雨林', type: 'complex', params: { layers: ['rain', 'chime'], gain: 0.3 } },
+    { id: 'sparkle', name: '✨ 闪耀', type: 'sparkle', params: { count: 6, freqRange: [2000, 5000], decay: 0.3, gain: 0.2 } }
+];
+
 /**
  * 获取音效列表 - 14种可合成的音效参数
  * 前端使用 Web Audio API 直接合成，无需加载音频文件
  */
 app.get('/api/sound-effects/list', (req, res) => {
-    const effects = [
-        { id: 'rain', name: '🌧️ 细雨', type: 'whiteNoise', params: { duration: 2.0, highpass: 2000, gain: 0.3 } },
-        { id: 'ocean', name: '🌊 海浪', type: 'brownNoise', params: { duration: 3.0, lowpass: 600, gain: 0.25 } },
-        { id: 'wind', name: '💨 风声', type: 'pinkNoise', params: { duration: 2.5, bandpass: { freq: 400, Q: 0.5 }, gain: 0.2 } },
-        { id: 'drip', name: '💧 水滴', type: 'tone', params: { freq: 800, decay: 0.15, gain: 0.4 } },
-        { id: 'chime', name: '🔔 风铃', type: 'harmonic', params: { baseFreq: 440, harmonics: [1, 2.5, 4.2], decay: 0.8, gain: 0.3 } },
-        { id: 'click', name: '🖱️ 咔嗒', type: 'noiseClick', params: { duration: 0.03, gain: 0.5 } },
-        { id: 'swoosh', name: '🌀 嗖嗖', type: 'sweep', params: { freqStart: 200, freqEnd: 2000, duration: 0.4, gain: 0.3 } },
-        { id: 'bubble', name: '🫧 泡泡', type: 'tone', params: { freq: 1200, decay: 0.08, gain: 0.35 } },
-        { id: 'heartbeat', name: '💓 心跳', type: 'pulse', params: { freq: 60, decay: 0.2, gain: 0.5, interval: 0.8 } },
-        { id: 'crackle', name: '🔥 噼啪', type: 'crackle', params: { density: 0.3, duration: 1.0, gain: 0.4 } },
-        { id: 'harp', name: '🎵 竖琴拨弦', type: 'tone', params: { freq: 523, decay: 0.6, gain: 0.3 } },
-        { id: 'bell', name: '🔔 钟声', type: 'harmonic', params: { baseFreq: 660, harmonics: [1, 3, 5], decay: 1.5, gain: 0.25 } },
-        { id: 'rainforest', name: '🌴 雨林', type: 'complex', params: { layers: ['rain', 'chime'], gain: 0.3 } },
-        { id: 'sparkle', name: '✨ 闪耀', type: 'sparkle', params: { count: 6, freqRange: [2000, 5000], decay: 0.3, gain: 0.2 } }
-    ];
-    res.json({ success: true, effects, total: effects.length });
+    res.json({ success: true, effects: SOUND_EFFECTS, total: SOUND_EFFECTS.length });
 });
 
 /**
  * 获取单个音效的详细合成参数
  */
 app.get('/api/sound-effects/:id', (req, res) => {
-    const effects = [
-        { id: 'rain', name: '🌧️ 细雨', type: 'whiteNoise', params: { duration: 2.0, highpass: 2000, gain: 0.3 } },
-        { id: 'ocean', name: '🌊 海浪', type: 'brownNoise', params: { duration: 3.0, lowpass: 600, gain: 0.25 } },
-        { id: 'wind', name: '💨 风声', type: 'pinkNoise', params: { duration: 2.5, bandpass: { freq: 400, Q: 0.5 }, gain: 0.2 } },
-        { id: 'drip', name: '💧 水滴', type: 'tone', params: { freq: 800, decay: 0.15, gain: 0.4 } },
-        { id: 'chime', name: '🔔 风铃', type: 'harmonic', params: { baseFreq: 440, harmonics: [1, 2.5, 4.2], decay: 0.8, gain: 0.3 } },
-        { id: 'click', name: '🖱️ 咔嗒', type: 'noiseClick', params: { duration: 0.03, gain: 0.5 } },
-        { id: 'swoosh', name: '🌀 嗖嗖', type: 'sweep', params: { freqStart: 200, freqEnd: 2000, duration: 0.4, gain: 0.3 } },
-        { id: 'bubble', name: '🫧 泡泡', type: 'tone', params: { freq: 1200, decay: 0.08, gain: 0.35 } },
-        { id: 'heartbeat', name: '💓 心跳', type: 'pulse', params: { freq: 60, decay: 0.2, gain: 0.5, interval: 0.8 } },
-        { id: 'crackle', name: '🔥 噼啪', type: 'crackle', params: { density: 0.3, duration: 1.0, gain: 0.4 } },
-        { id: 'harp', name: '🎵 竖琴拨弦', type: 'tone', params: { freq: 523, decay: 0.6, gain: 0.3 } },
-        { id: 'bell', name: '🔔 钟声', type: 'harmonic', params: { baseFreq: 660, harmonics: [1, 3, 5], decay: 1.5, gain: 0.25 } },
-        { id: 'rainforest', name: '🌴 雨林', type: 'complex', params: { layers: ['rain', 'chime'], gain: 0.3 } },
-        { id: 'sparkle', name: '✨ 闪耀', type: 'sparkle', params: { count: 6, freqRange: [2000, 5000], decay: 0.3, gain: 0.2 } }
-    ];
-    const effect = effects.find(e => e.id === req.params.id);
+    const effect = SOUND_EFFECTS.find(e => e.id === req.params.id);
     if (!effect) {
         return res.status(404).json({ success: false, message: '音效不存在' });
     }
@@ -813,7 +829,46 @@ app.get('/api/beat/sync', (req, res) => {
 
 // ==================== 分享链接生成 ====================
 const shareLinks = new Map();
-let shareCounter = 0;
+const SHARE_LINKS_FILE = path.join(DATA_DIR, 'share-links.json');
+
+// 从文件恢复分享链接
+function loadShareLinks() {
+    try {
+        if (fs.existsSync(SHARE_LINKS_FILE)) {
+            const data = JSON.parse(fs.readFileSync(SHARE_LINKS_FILE, 'utf-8'));
+            if (data && typeof data === 'object') {
+                for (const [code, link] of Object.entries(data)) {
+                    shareLinks.set(code, link);
+                }
+                console.log(`[分享] 已恢复 ${shareLinks.size} 个分享链接`);
+            }
+        }
+    } catch (e) {
+        console.warn('[分享] 恢复分享链接失败:', e.message);
+    }
+}
+
+// 持久化分享链接到文件
+function saveShareLinks() {
+    try {
+        const data = Object.fromEntries(shareLinks);
+        fs.writeFileSync(SHARE_LINKS_FILE, JSON.stringify(data), 'utf-8');
+    } catch (e) {
+        console.warn('[分享] 保存分享链接失败:', e.message);
+    }
+}
+
+// 生成随机分享码（防枚举）
+function generateShareCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+}
+
+loadShareLinks();
 
 app.post('/api/share', (req, res) => {
     try {
@@ -821,7 +876,7 @@ app.post('/api/share', (req, res) => {
         if (!filename) {
             return res.status(400).json({ success: false, message: '缺少文件名' });
         }
-        const code = (++shareCounter).toString(36).toUpperCase();
+        const code = generateShareCode();
         const baseUrl = `${req.protocol}://${req.get('host')}`;
         shareLinks.set(code, {
             type: 'gallery',
@@ -829,6 +884,7 @@ app.post('/api/share', (req, res) => {
             url: `${baseUrl}/api/gallery/image/${filename}`,
             createdAt: Date.now()
         });
+        saveShareLinks();
         res.json({
             success: true,
             code,

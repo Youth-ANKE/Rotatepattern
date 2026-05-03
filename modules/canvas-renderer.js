@@ -159,6 +159,7 @@ const CanvasRenderer = {
             case 'dashed': dashStr = '8,4'; break;
             case 'dotted': dashStr = '2,6'; break;
             case 'spray': dashStr = '1,4'; break;
+            case 'ribbon': dashStr = '12,3,2,3'; break; // 缎带：长短交替虚线
             default: dashStr = ''; break;
         }
 
@@ -409,7 +410,6 @@ const CanvasRenderer = {
 
         // 安全检查：如果没有笔画，绘制明显的占位图案
         if (!strokes || strokes.length === 0) {
-            console.warn('[CanvasRenderer] 没有笔画可绘制');
             // 使用对比色绘制占位图案，确保可见
             const bgColor = s.bgColor || '#000000';
             const contrastColor = this._getContrastColor(bgColor);
@@ -531,14 +531,20 @@ const CanvasRenderer = {
      */
     _getSymmetryScaleFactor(symmetryMode, count) {
         if (symmetryMode === 'spiral') {
-            // 螺旋模式本身有缩放，取较小值
             return 0.7;
         }
         if (symmetryMode === 'mirror') {
-            // 镜像对称，内容被反射到另一半
-            // 对于 N 个镜像，缩放因子约 1 / (1 + cos(π/N))
             if (count <= 1) return 1;
             return 1 / (1 + Math.cos(Math.PI / count));
+        }
+        if (symmetryMode === 'interlockMirror') {
+            // 交错镜像：每个副本占据一半扇区，需要稍小缩放
+            if (count <= 1) return 1;
+            return 1 / (1 + Math.cos(Math.PI / count)) * 0.92;
+        }
+        if (symmetryMode === 'spiralMirror') {
+            // 螺旋镜像：与螺旋类似
+            return 0.65;
         }
         // 旋转对称：最常见的情况
         // N折旋转时，内容绕中心旋转 N 次
@@ -559,6 +565,12 @@ const CanvasRenderer = {
             this._drawSpiralOffscreen(ctx, cx, cy, count, rotation, scaleFactor);
         } else if (symmetryMode === 'mirror') {
             this._drawMirrorOffscreen(ctx, cx, cy, count, rotation, scaleFactor);
+        } else if (symmetryMode === 'interlockMirror') {
+            // 交错镜像：旋转 + 交替镜像，创造万花筒般的交错效果
+            this._drawInterlockMirrorOffscreen(ctx, cx, cy, count, rotation, scaleFactor);
+        } else if (symmetryMode === 'spiralMirror') {
+            // 螺旋镜像：螺旋缩放 + 镜像交替
+            this._drawSpiralMirrorOffscreen(ctx, cx, cy, count, rotation, scaleFactor);
         } else {
             this._drawRotationalOffscreen(ctx, cx, cy, count, rotation, scaleFactor);
         }
@@ -631,6 +643,65 @@ const CanvasRenderer = {
         }
     },
 
+    /**
+     * 交错镜像 (Interlock Mirror) - 旋转对称与镜像交替
+     * 偶数副本正常旋转，奇数副本镜像反射
+     * 产生真正的万花筒效果（如实物万花筒中的镜像碎片）
+     */
+    _drawInterlockMirrorOffscreen(ctx, cx, cy, count, rotation, scaleFactor) {
+        if (count <= 0) return;
+        const angleStep = (2 * Math.PI) / count;
+
+        for (let i = 0; i < count; i++) {
+            const totalAngle = rotation + i * angleStep;
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(totalAngle);
+
+            if (i % 2 === 0) {
+                // 正常旋转副本
+                ctx.scale(scaleFactor, scaleFactor);
+            } else {
+                // 镜像反射副本
+                ctx.scale(-scaleFactor, scaleFactor);
+            }
+
+            ctx.translate(-cx, -cy);
+            ctx.drawImage(this.offscreenCanvas, 0, 0);
+            ctx.restore();
+        }
+    },
+
+    /**
+     * 螺旋镜像 (Spiral Mirror) - 螺旋缩放与镜像交替
+     * 每个副本按螺旋缩放，奇数副本镜像
+     * 产生不断缩小的镜像图案，像无限反射的万花筒隧道
+     */
+    _drawSpiralMirrorOffscreen(ctx, cx, cy, count, rotation, baseScaleFactor) {
+        if (count <= 0) return;
+        const { spiralScale } = StateManager.state;
+        const scaleFactor = 1 + (spiralScale / 100) * 0.5;
+        const angleStep = (2 * Math.PI) / count;
+
+        for (let i = 0; i < count; i++) {
+            const totalAngle = rotation + i * angleStep;
+            const s = Math.pow(scaleFactor, i) * baseScaleFactor;
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(totalAngle);
+
+            if (i % 2 === 0) {
+                ctx.scale(s, s);
+            } else {
+                ctx.scale(-s, s);
+            }
+
+            ctx.translate(-cx, -cy);
+            ctx.drawImage(this.offscreenCanvas, 0, 0);
+            ctx.restore();
+        }
+    },
+
     _drawStrokeSet(ctx, strokes, cx, cy, symmetryMode, count, rotation) {
         // 使用与离屏画布相同的缩放因子，防止实时笔画被裁剪
         const scaleFactor = this._getSymmetryScaleFactor(symmetryMode, count);
@@ -639,6 +710,10 @@ const CanvasRenderer = {
             this._drawSpiralSymmetry(ctx, strokes, cx, cy, count, rotation, scaleFactor);
         } else if (symmetryMode === 'mirror') {
             this._drawMirrorSymmetry(ctx, strokes, cx, cy, count, rotation, scaleFactor);
+        } else if (symmetryMode === 'interlockMirror') {
+            this._drawInterlockMirrorSymmetry(ctx, strokes, cx, cy, count, rotation, scaleFactor);
+        } else if (symmetryMode === 'spiralMirror') {
+            this._drawSpiralMirrorSymmetry(ctx, strokes, cx, cy, count, rotation, scaleFactor);
         } else {
             this._drawRotationalSymmetry(ctx, strokes, cx, cy, count, rotation, scaleFactor);
         }
@@ -675,6 +750,36 @@ const CanvasRenderer = {
             const mirrorAngle = (i * Math.PI) / Math.max(count, 1);
             // 使用 'mirror' mode: 先旋转对齐再反射
             this._drawTransformedStrokes(ctx, strokes, cx, cy, rotation + mirrorAngle, 'mirror', scaleFactor, s);
+        }
+    },
+
+    /**
+     * 交错镜像实时笔画
+     */
+    _drawInterlockMirrorSymmetry(ctx, strokes, cx, cy, count, rotation, scaleFactor) {
+        const angleStep = (2 * Math.PI) / count;
+        const s = StateManager.state;
+        for (let i = 0; i < count; i++) {
+            const totalAngle = rotation + i * angleStep;
+            const mirrorMode = i % 2 !== 0 ? 'mirror' : null;
+            this._drawTransformedStrokes(ctx, strokes, cx, cy, totalAngle, mirrorMode, scaleFactor, s);
+        }
+    },
+
+    /**
+     * 螺旋镜像实时笔画
+     */
+    _drawSpiralMirrorSymmetry(ctx, strokes, cx, cy, count, rotation, scaleFactor) {
+        const { spiralScale } = StateManager.state;
+        const spiralFactor = 1 + (spiralScale / 100) * 0.5;
+        const angleStep = (2 * Math.PI) / count;
+        const s = StateManager.state;
+
+        for (let i = 0; i < count; i++) {
+            const totalAngle = rotation + i * angleStep;
+            const scale = Math.pow(spiralFactor, i) * scaleFactor;
+            const mirrorMode = i % 2 !== 0 ? 'mirror' : null;
+            this._drawTransformedStrokes(ctx, strokes, cx, cy, totalAngle, mirrorMode, scale, s);
         }
     },
 
@@ -751,53 +856,50 @@ const CanvasRenderer = {
         const len = stroke.length;
         if (len < 2) return;
 
+        // 预计算三角函数
+        const hasAngle = angle !== 0;
+        const cosA = hasAngle ? Math.cos(angle) : 1;
+        const sinA = hasAngle ? Math.sin(angle) : 0;
+        const hasScale = scale && scale !== 1;
+
         ctx.beginPath();
 
         // 变换第一个点
         let x = stroke[0].x, y = stroke[0].y;
-        if (angle !== 0 || (scale && scale !== 1)) {
-            if (angle !== 0) {
-                const cosA = Math.cos(angle), sinA = Math.sin(angle);
-                const dx = x - cx, dy = y - cy;
-                x = cx + dx * cosA - dy * sinA;
-                y = cy + dx * sinA + dy * cosA;
-            }
-            if (scale && scale !== 1) {
-                x = cx + (x - cx) * scale;
-                y = cy + (y - cy) * scale;
-            }
+        if (hasAngle) {
+            const dx = x - cx, dy = y - cy;
+            x = cx + dx * cosA - dy * sinA;
+            y = cy + dx * sinA + dy * cosA;
+        }
+        if (hasScale) {
+            x = cx + (x - cx) * scale;
+            y = cy + (y - cy) * scale;
         }
         ctx.moveTo(x, y);
 
         for (let i = 1; i < len; i++) {
             x = stroke[i].x; y = stroke[i].y;
-            if (angle !== 0 || (scale && scale !== 1)) {
-                if (angle !== 0) {
-                    const cosA = Math.cos(angle), sinA = Math.sin(angle);
-                    const dx = x - cx, dy = y - cy;
-                    x = cx + dx * cosA - dy * sinA;
-                    y = cy + dx * sinA + dy * cosA;
-                }
-                if (scale && scale !== 1) {
-                    x = cx + (x - cx) * scale;
-                    y = cy + (y - cy) * scale;
-                }
+            if (hasAngle) {
+                const dx = x - cx, dy = y - cy;
+                x = cx + dx * cosA - dy * sinA;
+                y = cy + dx * sinA + dy * cosA;
+            }
+            if (hasScale) {
+                x = cx + (x - cx) * scale;
+                y = cy + (y - cy) * scale;
             }
 
             if (i < len - 1) {
                 const next = stroke[i + 1];
                 let nx = next.x, ny = next.y;
-                if (angle !== 0 || (scale && scale !== 1)) {
-                    if (angle !== 0) {
-                        const cosA = Math.cos(angle), sinA = Math.sin(angle);
-                        const dx = nx - cx, dy = ny - cy;
-                        nx = cx + dx * cosA - dy * sinA;
-                        ny = cy + dx * sinA + dy * cosA;
-                    }
-                    if (scale && scale !== 1) {
-                        nx = cx + (nx - cx) * scale;
-                        ny = cy + (ny - cy) * scale;
-                    }
+                if (hasAngle) {
+                    const dx = nx - cx, dy = ny - cy;
+                    nx = cx + dx * cosA - dy * sinA;
+                    ny = cy + dx * sinA + dy * cosA;
+                }
+                if (hasScale) {
+                    nx = cx + (nx - cx) * scale;
+                    ny = cy + (ny - cy) * scale;
                 }
                 // 二次贝塞尔插值
                 const xc = (x + nx) / 2;
@@ -920,6 +1022,10 @@ const CanvasRenderer = {
             this._drawSpiralOffscreenWithAnimation(ctx, cx + offsetX, cy + offsetY, count, totalRotation, finalScale);
         } else if (symmetryMode === 'mirror') {
             this._drawMirrorOffscreenWithAnimation(ctx, cx + offsetX, cy + offsetY, count, totalRotation, finalScale);
+        } else if (symmetryMode === 'interlockMirror') {
+            this._drawInterlockMirrorOffscreenWithAnimation(ctx, cx + offsetX, cy + offsetY, count, totalRotation, finalScale);
+        } else if (symmetryMode === 'spiralMirror') {
+            this._drawSpiralMirrorOffscreenWithAnimation(ctx, cx + offsetX, cy + offsetY, count, totalRotation, finalScale);
         } else {
             this._drawRotationalOffscreenWithAnimation(ctx, cx + offsetX, cy + offsetY, count, totalRotation, finalScale, hueOffset);
         }
@@ -980,6 +1086,49 @@ const CanvasRenderer = {
             ctx.scale(scale, -scale);
             ctx.rotate(-mirrorAngle - rotation);
 
+            ctx.translate(-cx, -cy);
+            ctx.drawImage(this.offscreenCanvas, 0, 0);
+            ctx.restore();
+        }
+    },
+
+    _drawInterlockMirrorOffscreenWithAnimation(ctx, cx, cy, count, rotation, scale) {
+        if (count <= 0) return;
+        const angleStep = (2 * Math.PI) / count;
+
+        for (let i = 0; i < count; i++) {
+            const totalAngle = rotation + i * angleStep;
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(totalAngle);
+            if (i % 2 === 0) {
+                ctx.scale(scale, scale);
+            } else {
+                ctx.scale(-scale, scale);
+            }
+            ctx.translate(-cx, -cy);
+            ctx.drawImage(this.offscreenCanvas, 0, 0);
+            ctx.restore();
+        }
+    },
+
+    _drawSpiralMirrorOffscreenWithAnimation(ctx, cx, cy, count, rotation, baseScale) {
+        if (count <= 0) return;
+        const { spiralScale } = StateManager.state;
+        const scaleFactor = 1 + (spiralScale / 100) * 0.5;
+        const angleStep = (2 * Math.PI) / count;
+
+        for (let i = 0; i < count; i++) {
+            const totalAngle = rotation + i * angleStep;
+            const s = Math.pow(scaleFactor, i) * baseScale;
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(totalAngle);
+            if (i % 2 === 0) {
+                ctx.scale(s, s);
+            } else {
+                ctx.scale(-s, s);
+            }
             ctx.translate(-cx, -cy);
             ctx.drawImage(this.offscreenCanvas, 0, 0);
             ctx.restore();

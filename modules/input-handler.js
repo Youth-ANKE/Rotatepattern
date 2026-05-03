@@ -10,6 +10,8 @@ const InputHandler = {
     // 笔画点采样限制
     lastPointTime: 0,
     minPointInterval: 8, // ms
+    // 保存事件监听器引用，以便正确移除
+    _boundHandlers: null,
 
     /**
      * 初始化事件监听
@@ -18,29 +20,38 @@ const InputHandler = {
     init(canvasId) {
         this.canvas = document.getElementById(canvasId);
         
+        // 使用命名引用以便后续移除
+        this._boundHandlers = {
+            onMouseDown: (e) => this._startStroke(e.clientX, e.clientY, e),
+            onMouseMove: (e) => this._moveStroke(e.clientX, e.clientY, e),
+            onMouseUp: (e) => this._endStroke(e),
+            onMouseLeave: (e) => { if (this.isDown) this._endStroke(e); },
+            onTouchStart: (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                this._startStroke(touch.clientX, touch.clientY, e);
+            },
+            onTouchMove: (e) => {
+                if (!this.isDown) return;
+                e.preventDefault();
+                const touch = e.touches[0];
+                this._moveStroke(touch.clientX, touch.clientY, e);
+            },
+            onTouchEnd: (e) => { if (this.isDown) this._endStroke(e); },
+            onTouchCancel: (e) => { if (this.isDown) this._endStroke(e); }
+        };
+
         // 鼠标事件
-        this.canvas.addEventListener('mousedown', (e) => this._startStroke(e.clientX, e.clientY, e));
-        window.addEventListener('mousemove', (e) => this._moveStroke(e.clientX, e.clientY, e));
-        window.addEventListener('mouseup', (e) => this._endStroke(e));
-        this.canvas.addEventListener('mouseleave', (e) => {
-            if (this.isDown) this._endStroke(e);
-        });
+        this.canvas.addEventListener('mousedown', this._boundHandlers.onMouseDown);
+        window.addEventListener('mousemove', this._boundHandlers.onMouseMove);
+        window.addEventListener('mouseup', this._boundHandlers.onMouseUp);
+        this.canvas.addEventListener('mouseleave', this._boundHandlers.onMouseLeave);
 
         // 触摸事件
-        this.canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            this._startStroke(touch.clientX, touch.clientY, e);
-        }, { passive: false });
-        window.addEventListener('touchmove', (e) => {
-            if (!this.isDown) return;
-            e.preventDefault();
-            const touch = e.touches[0];
-            this._moveStroke(touch.clientX, touch.clientY, e);
-        }, { passive: false });
-        window.addEventListener('touchend', (e) => {
-            if (this.isDown) this._endStroke(e);
-        });
+        this.canvas.addEventListener('touchstart', this._boundHandlers.onTouchStart, { passive: false });
+        window.addEventListener('touchmove', this._boundHandlers.onTouchMove, { passive: false });
+        window.addEventListener('touchend', this._boundHandlers.onTouchEnd);
+        window.addEventListener('touchcancel', this._boundHandlers.onTouchCancel);
     },
 
     /**
@@ -48,9 +59,10 @@ const InputHandler = {
      */
     _getCanvasPos(clientX, clientY) {
         const rect = this.canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
         return {
-            x: Math.round((clientX - rect.left) * (this.canvas.width / rect.width)),
-            y: Math.round((clientY - rect.top) * (this.canvas.height / rect.height))
+            x: Math.round((clientX - rect.left) * (this.canvas.width / rect.width / dpr)),
+            y: Math.round((clientY - rect.top) * (this.canvas.height / rect.height / dpr))
         };
     },
 
@@ -148,6 +160,27 @@ const InputHandler = {
         // 清空当前笔画并通知
         this.currentStroke = [];
         StateManager.setState({ currentStroke: [] });
+    },
+
+    /**
+     * 销毁模块，移除所有事件监听器，释放资源
+     */
+    destroy() {
+        if (!this._boundHandlers) return;
+        const c = this.canvas;
+        c.removeEventListener('mousedown', this._boundHandlers.onMouseDown);
+        c.removeEventListener('mouseleave', this._boundHandlers.onMouseLeave);
+        c.removeEventListener('touchstart', this._boundHandlers.onTouchStart);
+        window.removeEventListener('mousemove', this._boundHandlers.onMouseMove);
+        window.removeEventListener('mouseup', this._boundHandlers.onMouseUp);
+        window.removeEventListener('touchmove', this._boundHandlers.onTouchMove);
+        window.removeEventListener('touchend', this._boundHandlers.onTouchEnd);
+        window.removeEventListener('touchcancel', this._boundHandlers.onTouchCancel);
+        this._boundHandlers = null;
+        this.canvas = null;
+        this.isDown = false;
+        this.currentStroke = [];
+        console.log('[InputHandler] 已销毁');
     },
 
     /**

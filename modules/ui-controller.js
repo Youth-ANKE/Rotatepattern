@@ -295,16 +295,46 @@ const UIController = {
             }
         }, 1000);
 
-        // === 高级设置面板切换 ===
+        // === 高级设置面板切换（侧边抽屉） ===
         const settingsToggle = document.getElementById('settings-toggle');
         const advancedSettings = document.getElementById('advanced-settings');
-        if (settingsToggle && advancedSettings) {
+        const settingsOverlay = document.getElementById('settings-overlay');
+        const spClose = document.getElementById('sp-close');
+
+        function openSettings() {
+            if (advancedSettings) advancedSettings.classList.add('show');
+            if (settingsOverlay) settingsOverlay.classList.add('show');
+            if (settingsToggle) settingsToggle.classList.add('active');
+        }
+        function closeSettings() {
+            if (advancedSettings) advancedSettings.classList.remove('show');
+            if (settingsOverlay) settingsOverlay.classList.remove('show');
+            if (settingsToggle) settingsToggle.classList.remove('active');
+        }
+
+        if (settingsToggle) {
             settingsToggle.addEventListener('click', () => {
-                advancedSettings.classList.toggle('show');
-                settingsToggle.classList.toggle('active');
-                settingsToggle.textContent = advancedSettings.classList.contains('show') ? '⚙️ 收起设置' : '⚙️ 高级设置';
+                if (advancedSettings && advancedSettings.classList.contains('show')) {
+                    closeSettings();
+                } else {
+                    openSettings();
+                }
             });
         }
+        if (spClose) spClose.addEventListener('click', closeSettings);
+        if (settingsOverlay) settingsOverlay.addEventListener('click', closeSettings);
+
+        // === 分区折叠 ===
+        document.querySelectorAll('.sp-section-head[data-toggle]').forEach(head => {
+            head.addEventListener('click', () => {
+                const targetId = head.getAttribute('data-toggle');
+                const body = document.getElementById(targetId);
+                if (body) {
+                    head.classList.toggle('collapsed');
+                    body.classList.toggle('collapsed');
+                }
+            });
+        });
 
         // === 混合模式 ===
         const blendMode = document.getElementById('blend-mode');
@@ -920,9 +950,10 @@ const UIController = {
         container.querySelectorAll('.gallery-delete').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const idx = parseInt(e.target.dataset.index);
-                StateManager.state.galleryImages.splice(idx, 1);
-                StateManager._saveGallery();
-                StateManager.notify();
+                const img = images[idx];
+                if (img && img.id) {
+                    StateManager.removeGalleryImage(img.id);
+                }
             });
         });
     }
