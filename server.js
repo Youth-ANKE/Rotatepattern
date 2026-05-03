@@ -114,7 +114,7 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "https://api.deepseek.com", "https://*.deepseek.com"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       frameSrc: ["'none'"],

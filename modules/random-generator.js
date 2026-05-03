@@ -2688,6 +2688,90 @@ const RandomGenerator = {
     },
 
     /**
+     * 根据配置生成笔画（用于 AI 等外部配置）
+     * @param {Object} config - 配置对象
+     * @returns {Array} 笔画数组
+     */
+    _generateStrokesForConfig(config) {
+        const strokes = [];
+        const cx = StateManager.state.canvasWidth / 2;
+        const cy = StateManager.state.canvasHeight / 2;
+        const size = Math.min(StateManager.state.canvasWidth, StateManager.state.canvasHeight) * 0.42;
+        const colors = [config.strokeColor];
+        
+        // 根据图案类型生成笔画
+        const patternType = config.patternType || 'mandala';
+        const symmetry = config.symmetry || 6;
+        const strokeWidth = config.strokeWidth || 2;
+        
+        const patternConfig = { ...config, strokeWidth };
+        
+        if (typeof this[patternType] === 'function') {
+            strokes.push(...this[patternType](cx, cy, size, symmetry, colors, patternConfig, config));
+        } else {
+            // 默认使用 mandala
+            strokes.push(...this.mandala(cx, cy, size, symmetry, colors, patternConfig, config));
+        }
+        
+        // 如果有次要图案
+        if (config.secondaryPattern && typeof this[config.secondaryPattern] === 'function') {
+            const secondaryStrokes = this[config.secondaryPattern](
+                cx, cy, size * 0.7, symmetry, colors.map(c => this._adjustColorBrightness(c, 0.7)), 
+                { ...patternConfig, strokeWidth: strokeWidth * 0.7 }, 
+                config
+            );
+            strokes.push(...secondaryStrokes);
+        }
+        
+        // 确保有足够的笔画
+        if (strokes.length < this._MIN_STROKES) {
+            strokes.push(...this._generateFillerStrokes(cx, cy, size * 0.3, colors, patternConfig));
+        }
+        
+        return strokes;
+    },
+
+    /**
+     * 生成填充笔画（确保最小笔画数）
+     */
+    _generateFillerStrokes(cx, cy, size, colors, config) {
+        const strokes = [];
+        const count = this._MIN_STROKES - strokes.length;
+        
+        for (let i = 0; i < count; i++) {
+            if (typeof this.ripples === 'function') {
+                const layerStrokes = this.ripples(
+                    cx + (Math.random() - 0.5) * 50,
+                    cy + (Math.random() - 0.5) * 50,
+                    size * (0.3 + Math.random() * 0.5),
+                    4,
+                    colors,
+                    config,
+                    config
+                );
+                strokes.push(...layerStrokes);
+            }
+        }
+        
+        return strokes;
+    },
+
+    /**
+     * 调整颜色亮度
+     */
+    _adjustColorBrightness(hex, factor) {
+        if (!hex || !hex.startsWith('#')) return hex;
+        try {
+            const r = Math.min(255, Math.floor(parseInt(hex.slice(1, 3), 16) * factor));
+            const g = Math.min(255, Math.floor(parseInt(hex.slice(3, 5), 16) * factor));
+            const b = Math.min(255, Math.floor(parseInt(hex.slice(5, 7), 16) * factor));
+            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        } catch (e) {
+            return hex;
+        }
+    },
+
+    /**
      * 获取颜色亮度值
      */
     _getColorBrightness(color) {
@@ -2726,8 +2810,9 @@ const RandomGenerator = {
 
     /**
      * 应用随机配置到状态管理器 - 优化版本，减少卡顿
+     * @param {Object} externalConfig - 外部传入的配置（如 AI 生成），可选
      */
-    applyRandom() {
+    applyRandom(externalConfig) {
         const now = Date.now();
         
         // 防抖：快速点击时忽略
@@ -2748,6 +2833,54 @@ const RandomGenerator = {
         try {
             // 先生成配置和笔画
             let { config, strokes } = this.generate();
+            
+            // 如果有外部配置（如 AI 生成），优先使用外部配置的颜色
+            if (externalConfig) {
+                console.log('[RandomGenerator] 使用外部配置:', externalConfig.source || 'unknown');
+                
+                // 直接使用外部颜色值（AI 生成的 hex 颜色）
+                if (externalConfig.colors && externalConfig.colors.bg) {
+                    config.bgColor = externalConfig.colors.bg;
+                    config.bgColorEnd = externalConfig.colors.bgGrad || externalConfig.colors.bg;
+                    config.strokeColor = externalConfig.colors.stroke;
+                    config.glowColor = externalConfig.colors.glow;
+                    config.accentColor = externalConfig.colors.accent;
+                }
+                
+                // 应用外部图案配置
+                if (externalConfig.patternType) {
+                    config.patternType = externalConfig.patternType;
+                }
+                if (externalConfig.secondaryPattern) {
+                    config.secondaryPattern = externalConfig.secondaryPattern;
+                }
+                if (externalConfig.symmetry) {
+                    config.symmetry = externalConfig.symmetry;
+                }
+                if (externalConfig.symmetryMode) {
+                    config.symmetryMode = externalConfig.symmetryMode;
+                }
+                if (externalConfig.rotationSpeed) {
+                    config.rotationSpeed = externalConfig.rotationSpeed;
+                }
+                if (externalConfig.strokeWidth) {
+                    config.strokeWidth = externalConfig.strokeWidth;
+                }
+                
+                // 保留粒子和动画配置
+                if (externalConfig.particleType) {
+                    config.particleType = externalConfig.particleType;
+                }
+                if (externalConfig.animation) {
+                    config.animation = externalConfig.animation;
+                }
+                if (externalConfig.bgAnimation) {
+                    config.bgAnimation = externalConfig.bgAnimation;
+                }
+                
+                // 重新生成适合新图案的笔画
+                strokes = this._generateStrokesForConfig(config);
+            }
         
             // 确保生成了有效的笔画（最多重试2次）
             if (!strokes || strokes.length === 0) {

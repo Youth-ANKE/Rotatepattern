@@ -405,6 +405,39 @@
                     <button id="custom-shortcuts-btn" class="preset-btn" style="margin-top:10px;width:100%;">⚙️ 自定义快捷键</button>
                 </div>
             </div>
+
+            <!-- AI 设置 -->
+            <div class="sp-section">
+                <div class="sp-section-head" data-toggle="sec-ai">🤖 AI 智能生成 <span class="sp-arrow">▾</span></div>
+                <div class="sp-section-body" id="sec-ai">
+                    <div class="sp-field">
+                        <label>连接状态</label>
+                        <span id="ai-status" style="color:#888;font-size:12px;">⚠️ 请先配置 API Key</span>
+                    </div>
+                    <div class="sp-field">
+                        <label>API Key</label>
+                        <input type="password" id="ai-api-key" placeholder="输入 DeepSeek API Key" style="width:100%;padding:6px 10px;border-radius:4px;border:1px solid #444;background:#333;color:#fff;">
+                    </div>
+                    <div class="sp-field">
+                        <label>模型</label>
+                        <select id="ai-model-select" style="width:100%;padding:6px;border-radius:4px;background:#333;color:#fff;">
+                            <option value="deepseek-v4-flash">DeepSeek V4 Flash（快速）</option>
+                            <option value="deepseek-v4-pro">DeepSeek V4 Pro（高质量）</option>
+                        </select>
+                    </div>
+                    <div class="sp-field">
+                        <label></label>
+                        <button id="ai-save-btn" class="preset-btn" style="margin-bottom:5px;">💾 保存并测试</button>
+                    </div>
+                    <div class="sp-field">
+                        <label>随机模式</label>
+                        <button id="ai-toggle-btn" class="preset-btn" disabled>🤖 AI 随机（请先配置）</button>
+                    </div>
+                    <div class="sp-field" style="font-size:12px;color:#888;margin-top:5px;">
+                        按 <kbd>R</kbd> 键随机生成，开启 AI 后由智能算法生成更美观的配置
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -464,8 +497,11 @@
     <script src="modules/animation-controller.js?v=2026050302"></script>
     <script src="modules/background-animation.js?v=2026050304"></script>
     <script src="modules/input-handler.js?v=2026050302"></script>
-    <script src="modules/keyboard-handler.js?v=2026050302"></script>
-    <script src="modules/ui-controller.js?v=2026050302"></script>
+    <script src="modules/ai-config.js?v=2026050303"></script>
+    <script src="modules/ai-service.js?v=2026050303"></script>
+    <script src="modules/ai-smart-generator.js?v=2026050304"></script>
+    <script src="modules/keyboard-handler.js?v=2026050313"></script>
+    <script src="modules/ui-controller.js?v=2026050303"></script>
     <script src="modules/fullscreen-controller.js?v=2026050310"></script>
     <script src="modules/creative-extensions.js?v=2026050301"></script>
     <script src="modules/fractal-generator.js?v=2026050301"></script>

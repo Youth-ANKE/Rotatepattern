@@ -10,6 +10,111 @@ const UIController = {
         this._bindControls();
         this._bindExportButtons();
         this._bindGallery();
+        this._bindAISettings();
+    },
+
+    /**
+     * AI 设置绑定
+     */
+    _bindAISettings() {
+        // 加载保存的设置
+        AIConfig.loadSettings();
+
+        // 获取元素
+        const apiKeyInput = document.getElementById('ai-api-key');
+        const modelSelect = document.getElementById('ai-model-select');
+        const toggleBtn = document.getElementById('ai-toggle-btn');
+        const statusEl = document.getElementById('ai-status');
+        const saveBtn = document.getElementById('ai-save-btn');
+
+        // 更新状态显示
+        const updateStatus = () => {
+            if (statusEl) {
+                statusEl.textContent = AIConfig.getStatusText();
+                // 根据状态设置颜色
+                if (AIConfig.status === 'ready') {
+                    statusEl.style.color = AIConfig.aiEnabled ? '#4ade80' : '#888';
+                } else if (AIConfig.status === 'error') {
+                    statusEl.style.color = '#f87171';
+                } else {
+                    statusEl.style.color = '#fbbf24';
+                }
+            }
+            if (toggleBtn) {
+                if (AIConfig.isConfigured() && AIConfig.status === 'ready') {
+                    toggleBtn.disabled = false;
+                    toggleBtn.classList.toggle('active', AIConfig.aiEnabled);
+                    toggleBtn.textContent = AIConfig.aiEnabled ? '🤖 AI 随机（开）' : '🤖 AI 随机（关）';
+                } else {
+                    toggleBtn.disabled = true;
+                    toggleBtn.textContent = '🤖 AI 随机（请先配置）';
+                }
+            }
+        };
+
+        // 填充已保存的值
+        if (apiKeyInput && AIConfig.apiKey) {
+            apiKeyInput.value = AIConfig.apiKey;
+        }
+        if (modelSelect) {
+            modelSelect.value = AIConfig.model;
+        }
+        updateStatus();
+
+        // 保存并测试按钮
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const key = document.getElementById('ai-api-key').value.trim();
+                const model = document.getElementById('ai-model-select').value;
+
+                AIConfig.setApiKey(key);
+                AIConfig.setModel(model);
+
+                if (!key) {
+                    UIController._showMessage('⚠️ 请输入 API Key');
+                    updateStatus();
+                    return;
+                }
+
+                // 测试连接
+                saveBtn.textContent = '🔄 测试中...';
+                saveBtn.disabled = true;
+
+                const result = await AIConfig.testConnection();
+
+                if (result.success) {
+                    AIConfig.saveSettings();
+                    UIController._showMessage('✅ ' + result.message);
+                } else {
+                    UIController._showMessage('❌ ' + result.message);
+                }
+
+                updateStatus();
+                saveBtn.textContent = '💾 保存并测试';
+                saveBtn.disabled = false;
+            });
+        }
+
+        // 切换按钮
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                if (!AIConfig.isConfigured()) {
+                    UIController._showMessage('⚠️ 请先配置并测试 API Key');
+                    return;
+                }
+                const enabled = AIConfig.toggle();
+                updateStatus();
+                UIController._showMessage(enabled ? '✨ AI 智能生成已启用' : '🎲 已切换为传统随机');
+            });
+        }
+    },
+
+    _showMessage(msg) {
+        if (typeof KeyboardHandler?._showToast === 'function') {
+            KeyboardHandler._showToast(msg);
+        } else {
+            alert(msg);
+        }
     },
 
     /**

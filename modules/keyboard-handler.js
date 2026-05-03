@@ -68,7 +68,7 @@ const KeyboardHandler = {
             case 'r':
                 if (!e.ctrlKey) {
                     e.preventDefault();
-                    this._randomConfig();
+                    this._randomConfigAI();
                 }
                 break;
 
@@ -278,6 +278,19 @@ const KeyboardHandler = {
             RandomGenerator.applyRandom();
         }
         this._showToast('🎲 随机生成配置！');
+    },
+
+    /**
+     * AI 智能随机生成
+     */
+    async _randomConfigAI() {
+        const config = await AISmartGenerator.generate();
+        if (config && typeof RandomGenerator?.applyRandom === 'function') {
+            RandomGenerator.applyRandom(config);
+        } else {
+            // 降级到传统随机
+            this._randomConfig();
+        }
     },
 
     _adjustSymmetry(delta) {
