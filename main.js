@@ -155,6 +155,12 @@
             // 更新粒子
             ParticleSystem.update();
 
+            // 更新音频可视化
+            if (typeof CreativeExtensions !== 'undefined') {
+                CreativeExtensions.updateAudioVisualization();
+                CreativeExtensions.applyAudioVisualization();
+            }
+
             // 绘制到画布
             CanvasRenderer.render();
 

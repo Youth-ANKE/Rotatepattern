@@ -261,6 +261,23 @@ const CanvasRenderer = {
             return;
         }
 
+        // ============ 音频可视化效果应用 ============
+        // 从 CreativeExtensions 获取可视化参数
+        if (typeof CreativeExtensions !== 'undefined' && CreativeExtensions._visualizerEnabled) {
+            const vParams = s._visualParams || {};
+
+            // 应用缩放效果（整体）
+            if (s._visualScale && s._visualScale !== 1) {
+                // 缩放效果在绘制时应用
+            }
+
+            // 增强拖尾效果在有音频时
+            if (vParams.overallLevel > 0.3) {
+                // 音频增强拖尾
+            }
+        }
+        // ============ 音频可视化结束 ============
+
         const ctx = this.ctx;
         if (!ctx) return;
         const cx = canvasWidth / 2;
@@ -578,12 +595,23 @@ const CanvasRenderer = {
 
     _drawRotationalOffscreen(ctx, cx, cy, count, rotation, scaleFactor) {
         const angleStep = (2 * Math.PI) / count;
+
+        // ============ 音频可视化：整体缩放 ============
+        let visualScale = scaleFactor;
+        if (typeof CreativeExtensions !== 'undefined' && CreativeExtensions._visualizerEnabled) {
+            const v = CreativeExtensions._visualParams;
+            if (v && v.overallLevel > 0.3) {
+                visualScale = scaleFactor * (1 + (v.overallLevel - 0.3) * 0.15);
+            }
+        }
+        // ============ 音频可视化结束 ============
+
         for (let i = 0; i < count; i++) {
             const totalAngle = rotation + i * angleStep;
             ctx.save();
             ctx.translate(cx, cy);
             ctx.rotate(totalAngle);
-            ctx.scale(scaleFactor, scaleFactor);
+            ctx.scale(visualScale, visualScale);
             ctx.translate(-cx, -cy);
             ctx.drawImage(this.offscreenCanvas, 0, 0);
             ctx.restore();

@@ -292,6 +292,11 @@ const AudioEngine = {
             this.onlineMusicData = track;
             console.log(`[AudioEngine] 开始播放: ${track.title} (${this.playlistIndex + 1}/${this.playlist.length}) [${isLocalUrl ? '本地' : '在线'}]`);
 
+            // 连接音频源到可视化分析器
+            if (typeof CreativeExtensions !== 'undefined' && CreativeExtensions._visualizerEnabled) {
+                CreativeExtensions.connectAudioSource(audio);
+            }
+
             // 本地文件加载失败时，回退到在线 URL
             audio.addEventListener('error', () => {
                 if (signal.aborted) return;
